@@ -1,0 +1,4 @@
+*.pickle
+Results/
+.spyproject/
+__pycache__/
