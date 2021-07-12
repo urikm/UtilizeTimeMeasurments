@@ -18,7 +18,6 @@ from MasterEqSim import MasterEqSolver as MESolver
 from TrajectoryCreation import *
 from PartialTrajectories import  * 
 import CnnFirstTry as neep
-import UtilityTraj as ut
 
 import torch
 from torch.optim import Adam, SGD, Adagrad, RMSprop , Rprop

@@ -15,15 +15,14 @@ import matplotlib.pyplot as plt
 # import scipy.stats as stats
 from UtilityTraj import GenRateMat
 from MasterEqSim import MasterEqSolver as MESolver
-import TrajectoryCreation as tc
-import PartialTrajectories as pt
+from TrajectoryCreation import EstimateTrajParams
 import PartialTrajectories_KLD  as ptKld
 
 # %% Calculate dual rate matrix
 def CalcDualRateMat(mW,mPartTraj,nCgDim):
     mWdual = np.copy(mW)
     # Find steady state
-    _ , _ , _ , _ ,vPss = tc.EstimateTrajParams(nCgDim,mPartTraj)
+    _ , _ , _ , _ ,vPss = EstimateTrajParams(nCgDim,mPartTraj)
     # Create Dual rate matrix
     mWdual = mWdual.transpose()
     mWdual[0,1] *= vPss[0]/vPss[1]
