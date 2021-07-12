@@ -2,18 +2,21 @@
 """
 Created on Sat Oct 31 18:23:27 2020
 
-@title: Continuous Time Random Walks
+@title: Continuous Time Markov Chain (CTMC)
     
 @author: Uri Kapustin
+
+@description: Creates trajectory of CTMC according to given rate matrix and initial condition
 """
 # %% Imports
 import numpy as np
 import random as rd
 import matplotlib.pyplot as plt
 import scipy.stats as stats
-from UtilityTraj import *
-from MasterEqSim import MasterEqSolver as MESolver
-from MasterEqSim import PrintMasterEqRes
+from PhysicalModels.UtilityTraj import GenRateMat,EntropyRateCalculation
+from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
+from PhysicalModels.MasterEqSim import PrintMasterEqRes
+
 # %% Create single trajectory
 def CreateTrajectory(nDim,nTimeStamps,initState,*args):
     # NOTE: 1st *args should be mW and it's optional!

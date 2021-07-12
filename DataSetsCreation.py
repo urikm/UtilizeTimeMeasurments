@@ -4,19 +4,21 @@ Created on Fri Jan  1 07:05:53 2021
 
 @title: DataSets Module
 
-@author: Yuri
+@author: Uri Kapustin
+
+@description: This module creates synthetic databases of trajectories according to wanted physical models
 """
+# %% TODO : This module need some "dust removal", it probably wont run 
+
 # %% imports
 import numpy as np
-import random as rd
 import pickle
 
-import matplotlib.pyplot as plt
 # import scipy.stats as stats
-from UtilityTraj import GenRateMat
-from MasterEqSim import MasterEqSolver as MESolver
-from TrajectoryCreation import EstimateTrajParams
-import PartialTrajectories_KLD  as ptKld
+from PhysicalModels.UtilityTraj import GenRateMat
+from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
+from PhysicalModels.TrajectoryCreation import EstimateTrajParams
+import PhysicalModels.PartialTrajectories as pt
 
 # %% Calculate dual rate matrix
 def CalcDualRateMat(mW,mPartTraj,nCgDim):
@@ -48,7 +50,7 @@ def CreateForwardSet(nTraj,lenTraj):
     lInd = fInd+lenTraj
     for iTraj in range(nTraj):
         mW = np.array([[-11.,2.,0.,1.],[3.,-52.2,2.,35.],[0.,50.,-77.,0.7],[8.,0.2,75.,-36.7]])
-        mFTrajsTmp,nCgDim=ptKld.CreateCoarseGrainedTraj(nDim,len4Creation,mW,vHiddenStates,0.01)
+        mFTrajsTmp,nCgDim=pt.CreateCoarseGrainedTraj(nDim,len4Creation,mW,vHiddenStates,0.01)
         mForwardTrajs[iTraj,:,:] = mFTrajsTmp[fInd:lInd,:] 
         
     return mForwardTrajs
@@ -67,9 +69,9 @@ def CreateForwardBackwardSet(nTraj,lenTraj):
     lInd = fInd+lenTraj
     for iTraj in range(nTraj):
         mW = GenRateMat(nDim)
-        mFTrajsTmp,nCgDim=ptKld.CreateCoarseGrainedTraj(nDim,len4Creation,mW,vHiddenStates,0.01)
+        mFTrajsTmp,nCgDim=pt.CreateCoarseGrainedTraj(nDim,len4Creation,mW,vHiddenStates,0.01)
         mWdual = CalcDualRateMat(mW,mFTrajsTmp,nCgDim)
-        mBTrajsTmp,nCgDim=ptKld.CreateCoarseGrainedTraj(nDim,len4Creation,mWdual,vHiddenStates,0.01)
+        mBTrajsTmp,nCgDim=pt.CreateCoarseGrainedTraj(nDim,len4Creation,mWdual,vHiddenStates,0.01)
         mForwardTrajs[iTraj,:,:] = mFTrajsTmp[fInd:lInd,:] 
         mBackwardTrajs[iTraj,:,:] = mBTrajsTmp[fInd:lInd,:] 
         
@@ -115,18 +117,18 @@ def CreateRnnDataSet(lenTraj):
     
     # Create Train set
     mForwardTrajs = CreateForwardSet(nTrain,lenTraj)
-    sigmaDotKld,T,_,_,_,_ = ptKld.CalcKLDPartialEntropyProdRate(np.squeeze(mForwardTrajs),3)
+    sigmaDotKld,T,_,_,_,_ = pt.CalcKLDPartialEntropyProdRate(np.squeeze(mForwardTrajs),3)
     dTrain['mData'] = mForwardTrajs
     dTrain['vLabels'] = sigmaDotKld*T # per step
     
     # Create Valid set
     mForwardTrajs = CreateForwardSet(nValid,lenTraj)
-    sigmaDotKld,T,_,_,_,_ = ptKld.CalcKLDPartialEntropyProdRate(np.squeeze(mForwardTrajs),3)
+    sigmaDotKld,T,_,_,_,_ = pt.CalcKLDPartialEntropyProdRate(np.squeeze(mForwardTrajs),3)
     dValid['mData'] = mForwardTrajs
     dValid['vLabels'] = sigmaDotKld*T # per step
     
     # Create Test set
-    sigmaDotKld,T,_,_,_,_ = ptKld.CalcKLDPartialEntropyProdRate(np.squeeze(mForwardTrajs),3)
+    sigmaDotKld,T,_,_,_,_ = pt.CalcKLDPartialEntropyProdRate(np.squeeze(mForwardTrajs),3)
     dTest['mData'] = mForwardTrajs
     dTest['vLabels'] = sigmaDotKld*T # per step
   

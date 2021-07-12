@@ -5,12 +5,14 @@ Created on Sat Oct 17 12:15:11 2020
 @title: Master equation simulation 
 
 @author: Uri Kapustin
+
+@description: This module solves the master equation for constant rate matrix
 """
 
 # %% Imports
 import numpy as np
 import matplotlib.pyplot as plt 
-from UtilityTraj import *
+from PhysicalModels.UtilityTraj import GenRateMat, MasterEqStep
 
 # %% MasterEq solver for defined dimension. Can use generated or input rate mat 
 def MasterEqSolver(nDim, vP0, *args):

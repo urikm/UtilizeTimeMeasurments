@@ -4,13 +4,15 @@ Created on Sat Nov  7 16:03:38 2020
 
 @title: Monte Carlo to prove Ergodicity in Steady-State
 
-@author: Yuri
+@author: Uri Kapustin
+
+@description: This script checks if created trajectory (not coarse-grained) is eragodic
 """
 
 import numpy as np
 import random as rd
-from UtilityTraj import *
-from TrajectoryCreation import CreateTrajectory
+from PhysicalModels.UtilityTraj import *
+from PhysicalModels.TrajectoryCreation import CreateTrajectory
 
 # %% Define problem
 nDim = 4 # dimension of the problem

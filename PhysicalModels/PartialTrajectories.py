@@ -5,15 +5,21 @@ Created on Fri Dec  4 13:30:24 2020
 @title: Partial Information from Trajectories Analyis(Reproduction of heirarchial bounds paper from 2017)
     
 @author: Uri Kapustin
+
+@description: Create coarse-grained trajectories which are not markov anymore
 """
 
 # %% Imports
 import numpy as np
 import random as rd
 import matplotlib.pyplot as plt
-# import scipy.stats as stats
-from MasterEqSim import MasterEqSolver as MESolver
-from TrajectoryCreation import *
+
+from sklearn.neighbors import KernelDensity as KD
+from sklearn.model_selection import GridSearchCV,LeaveOneOut
+
+from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
+from PhysicalModels.TrajectoryCreation import CreateTrajectory,EstimateTrajParams
+from PhysicalModels.UtilityTraj import CalcSteadyStateCurrent, EntropyRateCalculation
 
 
 # %% Assuming only states 0,1 are observable. TODO : maybe make more generic?
@@ -106,6 +112,135 @@ def CalcW4DrivingForce(mW,x):
     mWx[0,1]=mWx[0,1]*np.exp(-x)
     
     return mWx
+
+
+# %% Coarse Grain trajectory
+def CoarseGrainTrajectory(mTrajectory,nFullDim,vHiddenStates):
+    mCgTrajectory = np.copy(mTrajectory)
+    nJumps = np.size(mCgTrajectory,0)
+    iHidden = nFullDim-np.size(vHiddenStates,0)
+    hState = -2 #iHidden #  define as intermediate state every hidden state that is not last in it's sequence
+    
+    for iJump in range(nJumps):
+        
+        if (mCgTrajectory[iJump,0] in vHiddenStates):
+            if (iJump < nJumps-1):
+                    if (mCgTrajectory[iJump+1,0] in vHiddenStates):
+                        mCgTrajectory[iJump,0] = hState
+                        mCgTrajectory[iJump+1,1] += mCgTrajectory[iJump,1] # cumsum waiting times for each sequence
+                    else:
+                         mCgTrajectory[iJump,0] = iHidden                                              
+            else:
+                mCgTrajectory[iJump,0] = iHidden
+            
+    # Now remove '-2' states
+    mCgTrajectory = mCgTrajectory[(mCgTrajectory[:,0]!=hState),:]  # TODO: uncomment for right CG   
+    nCgDim = iHidden+1
+    return mCgTrajectory,nCgDim
+
+# Estimate 2nd order statistics of the trajectory (i->j->k transitions)
+# TODO: make competible for every combination , now competible only for 2019's paper example
+def EstimateTrajParams2ndOrder(nDim,mTrajectory):
+    mP2ndOrderTransitions = np.zeros((nDim,) * nDim) # all the Pijk - 3D tenzor
+    mWtd = []
+    vInitStates = np.arange(nDim)
+    for iState in vInitStates:
+        vIndInitTrans = np.array(np.where(mTrajectory[:-2,0] == iState)[0])
+        nTrans4State = np.size(vIndInitTrans,0)
+        vFirstTrans = np.roll(vInitStates,-iState)[1:]
+        for jState in vFirstTrans:
+            vIndFirstTrans = vIndInitTrans[np.array(np.where(mTrajectory[vIndInitTrans + 1,0] == jState)[0])]+1
+            # find which is the k state ( assuming only 3 states!!!)
+            kState = np.argwhere((vInitStates!=iState)&(vInitStates!=jState))[0][0]
+            vIndSecondTrans = vIndFirstTrans[np.array(np.where(mTrajectory[vIndFirstTrans + 1,0] == kState)[0])]+1
+            mP2ndOrderTransitions[iState,jState,kState] = np.size(vIndSecondTrans,0)/(nTrans4State+2)
+            if (jState == 2) & (iState != 2) & (kState != 2) & (iState != kState):
+                mWtd.append(mTrajectory[vIndSecondTrans-1,1]) 
+            
+    return mP2ndOrderTransitions, mWtd
+# Calculate KLD entropy production rate as explained in 2019  paper
+def CalcKLDPartialEntropyProdRate(mCgTrajectory,nDim):
+    # First estimate all statistics from hidden trajectory
+    mIndStates,mWaitTimes,vEstLambdas,mWest,vSS = EstimateTrajParams(nDim,mCgTrajectory)
+    mP2ndOrdTrans, mWtd = EstimateTrajParams2ndOrder(nDim,mCgTrajectory)
+    
+    # Calculate common paramerters
+    vTau = np.zeros(3)
+    vTau[0] = np.sum(mWaitTimes[0])/np.size(mWaitTimes[0],0)
+    vTau[1] = np.sum(mWaitTimes[1])/np.size(mWaitTimes[1],0)
+    vTau[2] = np.sum(mWaitTimes[2])/np.size(mWaitTimes[2],0)
+    
+    
+    vR = np.zeros(3)
+    nTot = np.size(mIndStates[0],0)+np.size(mIndStates[1],0)+np.size(mIndStates[2],0)
+    vR[0] = np.size(mIndStates[0],0)/nTot
+    vR[1] = np.size(mIndStates[1],0)/nTot
+    vR[2] = np.size(mIndStates[2],0)/nTot
+    
+    T = np.dot(vTau,vR)
+    
+    ## Find affinity part 
+    # Math: R12 = p21*R[1] = (tau[1]*w21)*(Pi[1]*T/tau[1])=w21*Pi[1]*T
+    R12 = mWest[1,0]*vSS[0]*T
+    R13 = mWest[2,0]*vSS[0]*T
+    R21 = mWest[0,1]*vSS[1]*T
+    R23 = mWest[2,1]*vSS[1]*T
+    R31 = mWest[0,2]*vSS[2]*T
+    R32 = mWest[1,2]*vSS[2]*T
+    # Pijk = Pr{to observe i>j>k} => Pijk=R[ijk]*R[i](this probaibility related to markoc chain, not time related)
+    p12_23 = mP2ndOrdTrans[0,1,2]*vR[0]/R12
+    p23_31 = mP2ndOrdTrans[1,2,0]*vR[1]/R23
+    p31_12 = mP2ndOrdTrans[2,0,1]*vR[2]/R31
+    p13_32 = mP2ndOrdTrans[0,2,1]*vR[0]/R13
+    p32_21 = mP2ndOrdTrans[2,1,0]*vR[2]/R32
+    p21_23 = mP2ndOrdTrans[1,0,2]*vR[1]/R21
+    
+    sigmaDotAff = ((R12-R21)/T*np.log(p12_23*p23_31*p31_12/p13_32/p32_21/p21_23))
+    
+    ## Find Wtd part
+    p1H2 = mP2ndOrdTrans[0,2,1]*vR[0]
+    p2H1 = mP2ndOrdTrans[1,2,0]*vR[1]
+    ## Use KDE to build Psi functions
+    # First estimate bandwidths
+    # bandwidths = np.linspace(-0.1, 0.1, 20)
+    # grid = GridSearchCV(KD(kernel='gaussian'),{'bandwidth': bandwidths},cv=LeaveOneOut())
+    # grid.fit(np.int64(mWtd[0][:, None]))
+    # b1H2 = grid.best_params_
+    # grid.fit(np.int64(mWtd[1][:, None]))
+    # b2H1 = grid.best_params_
+    b1H2 = 0.0043 # manually fixed after running some optimization, see the lines commented before
+    b2H1 = b1H2
+    # Define density destribution grid
+    vGridDest = np.linspace(0,0.2,100)
+    # kde1H2 = KD(bandwidth=b1H2['bandwidth'])
+    # kde2H1 = KD(bandwidth=b2H1['bandwidth'])
+    kde1H2 = KD(bandwidth=b1H2)
+    kde2H1 = KD(bandwidth=b2H1)
+    kde1H2.fit(mWtd[0][:,None])
+    kde2H1.fit(mWtd[1][:,None])
+    dd1H2 = np.exp(kde1H2.score_samples(vGridDest[:,None])) # density distribution 1->H->2
+    dd2H1 = np.exp(kde2H1.score_samples(vGridDest[:,None])) # density distribution 2->H->1
+    pDd1H2 = dd1H2/np.sum(dd1H2) # Probability density distribution
+    pDd2H1 = dd2H1/np.sum(dd2H1) # Probability density distribution
+    kld1H2 = np.sum(np.multiply(pDd1H2,np.log(np.divide(pDd1H2,pDd2H1))))
+    kld2H1 = np.sum(np.multiply(pDd2H1,np.log(np.divide(pDd2H1,pDd1H2))))
+    
+    sigmaDotWtd = (p1H2*kld1H2+p2H1*kld2H1)/T
+    
+    sigmaDotKld = sigmaDotAff + sigmaDotWtd
+    return sigmaDotKld,T,sigmaDotAff,sigmaDotWtd,dd1H2,dd2H1
+
+def CreateCoarseGrainedTraj(nDim,nTimeStamps,mW,vHiddenStates,timeRes):
+    # randomize init state from the steady-state distribution
+    vP0 = np.array([0.25,0.25,0.25,0.25])
+    n,vPi,mW,vWPn = MESolver(nDim,vP0,mW,timeRes)
+    initState = np.random.choice(nDim,1,p=vPi)
+    # Create trajectory
+    mTrajectory, mW = CreateTrajectory(nDim,nTimeStamps,initState,mW) # Run Create Trajectory
+    mCgTrajectory,nCgDim = CoarseGrainTrajectory(mTrajectory,nDim,vHiddenStates)   
+    return mCgTrajectory,nCgDim
+
+
 
 
 # %% Analysis Partial Entropy production on single trajectory
