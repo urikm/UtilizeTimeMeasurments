@@ -7,7 +7,9 @@ Created on Fri Dec 18 00:04:45 2020
 @author: Uri Kapustin
 
 @description: This is the main script to run 
+
 """
+
 import numpy as np
 
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
@@ -19,7 +21,7 @@ from torch.optim import Adam, SGD, Adagrad, RMSprop , Rprop
 
 import pickle
  
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 # device = 'cpu'
 
 # %% Comparing KLD estimator to previous
@@ -31,12 +33,12 @@ if __name__ == '__main__':
     # vSeqSize = np.array([128])
     # vLrate = np.array([1e-3,1e-3,5e-3,1e-2,5e-2])
     maxSeqSize = np.max(vSeqSize)
-    batchSize = 64#4096
+    batchSize = 4096
     vEpochs = 5*np.array([1,5,10,20,40]) # raising in order to keep same # of iterations for each seq size
     
     flagPlot = True
     nDim = 4 # dimension of the problem
-    nTimeStamps = int(maxSeqSize*batchSize*5e0) # how much time stamps will be saved
+    nTimeStamps = int(maxSeqSize*batchSize*1e2) # how much time stamps will be saved
     vHiddenStates = np.array([2,3]) # states 3 and 4 for 4-D state sytem
     
     ## Define base dynamics
@@ -51,6 +53,7 @@ if __name__ == '__main__':
     vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW)    
     # Init vectors for plotting
     vGrid = np.concatenate((np.arange(-1.,xSt,1),np.arange(xSt,3.,1)))
+    vGrid = np.arange(-3,xSt,1)
     # This used for running with different grid, dont change the upper version - its the defualt
     # vGrid = np.concatenate((np.arange(xSt-0.05,xSt-0.005,0.01),np.arange(xSt,xSt+0.05,0.01)))
 
@@ -143,8 +146,8 @@ if __name__ == '__main__':
             else:
                 model = neep.RNEEPT().to(device)
                 outFileadd ='T_'
-            if device == 'cuda':
-                model = torch.nn.parallel.DistributedDataParallel(model,device_ids=list(range(torch.cuda.device_count())))
+            if device == 'cuda:0':
+                model = torch.nn.DataParallel(model,device_ids=[0,1])
             # defining the optimizer
             # optimizer = SGD(model.parameters(),lr=vLrate[k])
             optimizer = Adam(model.parameters(),lr=1e-4,weight_decay=0.5e-4)
@@ -172,6 +175,3 @@ if __name__ == '__main__':
             pickle.dump(mNeep, handle)            
         
 
-# %% model size
-def count_parameters(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)

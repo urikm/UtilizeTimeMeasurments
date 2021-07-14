@@ -51,10 +51,14 @@ class RNEEP(Module):
         # S = self.fc(output_f[-1:,:,:]) - self.fc(output_r[-1:,:,:])
         return S
 
+    # Init model weights
     def init_hidden(self, bsz):
         weight = next(self.parameters())
         return weight.new_zeros(self.nlayers, bsz, self.nhid).detach()
-
+    
+    # Extract model size
+    def count_parameters(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
 # %% RNEEP - with time data as input
 class RNEEPT(Module):
     def __init__(self):
@@ -139,6 +143,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
         bestValidLoss = 1e3 # Init
         bestEpRate = 0
         bestEpErr = 1e6
+        validateFlag = False
         k=0
         
         for x_batch, y_batch in trainLoader:
@@ -160,8 +165,17 @@ def make_trainRnn(model,optimizer,seqSize,device):
             
             avgValLosses = []
             avgValScores = []
-            k+=1
-            if k % (384/seqSize) == 0 or k == 1:
+            
+            # Use validation step only if it's last batch or it modolus of 1e3
+            try: # 
+                tmpp=trainLoader.next
+                tmpp()
+            except:#
+                validateFlag = True
+            if k >= 1000 and not(k % 1000):
+                validateFlag = True
+                
+            if validateFlag:
                 with torch.no_grad():
                     for x_val, y_val in validationLoader:
                         x_val = x_val.to(device)
