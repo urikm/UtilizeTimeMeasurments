@@ -11,7 +11,7 @@ Created on Fri Dec 18 00:04:45 2020
 """
 
 import numpy as np
-
+import time
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.PartialTrajectories as pt 
 import LearningModels.Neep as neep
@@ -155,7 +155,10 @@ if __name__ == '__main__':
             bestLoss = 1e3
             for epoch in range(int(vEpochs[k])):
                 trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=batchSize, shuffle=False)
+                tic = time.time()
                 bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)/T
+                toc = time.time()
+                print('Elapsed time of Epoch ',epoch,' is: ',toc-tic)
                 if bestLossEpoch < bestLoss:
                     mNeep[k,i] = bestEpRate
                     bestLoss = bestLossEpoch

@@ -13,6 +13,7 @@ Created on Fri Jan  1 07:05:53 2021
 # %% imports
 import numpy as np
 import pickle
+import os
 
 # import scipy.stats as stats
 from PhysicalModels.UtilityTraj import GenRateMat
@@ -133,13 +134,57 @@ def CreateRnnDataSet(lenTraj):
     dTest['vLabels'] = sigmaDotKld*T # per step
   
     return dTrain,dValid,dTest
+
+
+# This dataset used for analysing the RNEEP implementation on markov chains with rate matrix from Gili's 2019 paper
+def CreateRNeepDataSet(nTimeStamps,mW,vX):
+    # The Dataset will be created for different applied forces(vX) and will consist of mDataset which will hold the trajectories(size of nTimeStamps)
+    # with their KLD per step.
+    # Also there will be mapping vector(vX) whose elements are the applied force on i'th trajectory(mDataset[i][2:]) 
+    
+    # Base rate matrix
+    nDim=4
+    vHiddenStates = np.array([2,3]) # states 3 and 4 for 4-D state syte
+    timeRes = 0.001
+    dDataSet = {'mDataSet':[],'vLabels':vX,'vTimeFactors':[]} # TimeFactors saved for further debug or any need to convert per step->per time
+    
+    for x in vX:
+        mWx = pt.CalcW4DrivingForce(mW,x) # Calculate W matrix after applying force
+        # Passive partial entropy production rate
+        vP0 = np.random.uniform(size=(nDim))
+        vP0 = vP0/sum(vP0)
+        mCgTrajectory,nCgDim = pt.CreateCoarseGrainedTraj(nDim,nTimeStamps,mWx,vHiddenStates,timeRes)
+        sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim)        
+        vCgTrajectory = mCgTrajectory[:,0]
+        dDataSet['mDataSet'].append(np.insert(vCgTrajectory,0,sigmaDotKld*T))
+        dDataSet['vTimeFactors'].append(T)
+    
+    return dDataSet
 ##########################################################
 
 if __name__ == '__main__':
+    # Define estimated size of trajectories(this will be the size of full trajectory which will be coarse grained)
+    nTimeStamps = int(4096*128*1e2) # batchSize X maxBatchSize X minNumBatches
+    # Define our physical rate matrix
+    mW = np.array([[-11.,2.,0.,1.],[3.,-52.2,2.,35.],[0.,50.,-77.,0.7],[8.,0.2,75.,-36.7]])
+    vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW) 
+    
+    # First we want data set for coarse grid of forces
+    vX = np.concatenate((np.arange(-2.,xSt-0.05,0.5),np.arange(xSt,4.,0.5)))
+    dDataSet=CreateRNeepDataSet(nTimeStamps,mW,vX)
+    with open('RneepDbCoarse.pickle', 'wb') as handle:
+        pickle.dump(dDataSet, handle)
+    # Second we want data set for fine grid of forces around stalling force
+    vX = np.concatenate((np.arange(xSt-0.005,xSt-0.0005,0.001),np.arange(xSt,xSt+0.005,0.001)))
+    dDataSet=CreateRNeepDataSet(nTimeStamps,mW,vX)
+    with open('RneepDbStalling.pickle', 'wb') as handle:
+        pickle.dump(dDataSet, handle)    
+    
+    ###### Some old datasets that need "dust removal"
     # dTrain,dValid,dTest = CreateBasicDataSet(1e3,1e3,500,100)
     # (lenTraj,nTrain,nValid,nTest)
 
-    dTrain,dValid,dTest = CreateRnnDataSet(1e5)
+    # dTrain,dValid,dTest = CreateRnnDataSet(1e5)
     # %% Save data set
     # with open('TrainSet.pickle', 'wb') as handle:
     #     pickle.dump(dTrain, handle)
@@ -148,10 +193,10 @@ if __name__ == '__main__':
     # with open('TestSet.pickle', 'wb') as handle:
     #     pickle.dump(dTest, handle)
         
-    with open('TrainSetRnn.pickle', 'wb') as handle:
-        pickle.dump(dTrain, handle)
-    with open('ValidSetRnn.pickle', 'wb') as handle:
-        pickle.dump(dValid, handle)
-    with open('TestSetRnn.pickle', 'wb') as handle:
-        pickle.dump(dTest, handle)
+    # with open('TrainSetRnn.pickle', 'wb') as handle:
+    #     pickle.dump(dTrain, handle)
+    # with open('ValidSetRnn.pickle', 'wb') as handle:
+    #     pickle.dump(dValid, handle)
+    # with open('TestSetRnn.pickle', 'wb') as handle:
+    #     pickle.dump(dTest, handle)
         

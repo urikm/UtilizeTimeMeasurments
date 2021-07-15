@@ -36,6 +36,7 @@ class RNEEP(Module):
         self.nlayers = nLayersGRU
 
     def forward(self, x):
+        self.rnn.flatten_parameters()
         # 1dim - size of seq to train ; 0dim - num of sequences
         bsz = x.size(1)
         h_f = self.init_hidden(bsz)
@@ -87,6 +88,8 @@ class RNEEPT(Module):
         self.nlayers = nLayersGRU
         
     def forward(self, x):
+        self.rnn.flatten_parameters()
+        self.rnnT.flatten_parameters()
         # 1dim - size of seq to train ; 0dim - num of sequences
         bsz = x.size(1)
         ## Forward Trajectory 
@@ -142,8 +145,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
         # avgTrainLosses = []
         bestValidLoss = 1e3 # Init
         bestEpRate = 0
-        bestEpErr = 1e6
-        validateFlag = False
+        bestEpErr = 1e6    
         k=0
         
         for x_batch, y_batch in trainLoader:
@@ -167,15 +169,8 @@ def make_trainRnn(model,optimizer,seqSize,device):
             avgValScores = []
             
             # Use validation step only if it's last batch or it modolus of 1e3
-            try: # 
-                tmpp=trainLoader.next
-                tmpp()
-            except:#
-                validateFlag = True
-            if k >= 1000 and not(k % 1000):
-                validateFlag = True
-                
-            if validateFlag:
+            k+=1
+            if (k >= 1000 and not(k % 1000)) or k == len(trainLoader):
                 with torch.no_grad():
                     for x_val, y_val in validationLoader:
                         x_val = x_val.to(device)
