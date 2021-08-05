@@ -60,6 +60,7 @@ class RNEEP(Module):
     # Extract model size
     def count_parameters(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
 # %% RNEEP - with time data as input
 class RNEEPT(Module):
     def __init__(self):
@@ -165,7 +166,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
             optimizer.step()           
             # avgTrainLosses.append(-output_train.mean().item())
             
-            avgValLosses = []
+            avgValLosses = 0
             avgValScores = []
             
             # Use validation step only if it's last batch or it modolus of 1e3
@@ -179,20 +180,24 @@ def make_trainRnn(model,optimizer,seqSize,device):
                         
                         entropy_val = model(torch.transpose(x_val,0,1))
                         # y_val = y_val.unsqueeze(1)
-                        val_loss = (-entropy_val + torch.exp(-entropy_val)).mean()
-                        avgValLosses.append(val_loss.item())
-                        avgValScores.append(entropy_val.cpu().numpy())
-                    avgValScores = np.cumsum(np.concatenate(avgValScores))
-                    predEntRate, _, _, _, _ = stats.linregress(
-                        np.arange(len(avgValScores)) * (seqSize - 1), avgValScores
-                    )
-                    avgValLoss = np.average(np.array(avgValLosses)) 
+                        val_loss = (-entropy_val + torch.exp(-entropy_val)).mean().item()
+                        avgValLosses += val_loss
+                        avgValScores.append(entropy_val)
+                    avgValScores = torch.cat(avgValScores).squeeze()
+                    # avgValScores = torch.cumsum(torch.cat(avgValScores).squeeze(),dim=0)
+                    # predEntRate, _, _, _, _ = stats.linregress(
+                    #     torch.arange(len(avgValScores)) * (seqSize - 1), avgValScores
+                    # )
+                    predEntRate = torch.mean(avgValScores)/len(validationLoader)/(seqSize-1)
+                    avgValLoss = avgValLosses/len(validationLoader)
                     # avgValScore = np.average(np.array(avgValScores))
                     
-                    if avgValLoss < bestValidLoss:
-                        bestEpRate = predEntRate
-                        bestEpErr = np.abs(bestEpRate-y_val[0].cpu().numpy())/y_val[0].cpu().numpy()
+                    if avgValLoss <= bestValidLoss:
+                        bestEpRate = predEntRate.cpu().item()
+                        bestEpErr = torch.abs(predEntRate-y_val[0])/y_val[0]
+                        bestEpErr = bestEpErr.cpu().item()
                         bestValidLoss = avgValLoss
+            torch.cuda.empty_cache()
         if iEpoch % 1 == 0:                
             print('Epoch : ',iEpoch+1,'\t' 'Best Loss :',bestValidLoss, '\t' 'Best EP rate err Train :', bestEpErr)
         

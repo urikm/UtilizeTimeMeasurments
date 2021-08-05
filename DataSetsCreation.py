@@ -137,29 +137,51 @@ def CreateRnnDataSet(lenTraj):
 
 
 # This dataset used for analysing the RNEEP implementation on markov chains with rate matrix from Gili's 2019 paper
-def CreateRNeepDataSet(nTimeStamps,mW,vX):
+def CreateRNeepDataSet(nTimeStamps,mW,vX,dbName,trajFileName):
     # The Dataset will be created for different applied forces(vX) and will consist of mDataset which will hold the trajectories(size of nTimeStamps)
     # with their KLD per step.
     # Also there will be mapping vector(vX) whose elements are the applied force on i'th trajectory(mDataset[i][2:]) 
-    
+
     # Base rate matrix
     nDim=4
     vHiddenStates = np.array([2,3]) # states 3 and 4 for 4-D state syte
     timeRes = 0.001
-    dDataSet = {'mDataSet':[],'vLabels':vX,'vTimeFactors':[]} # TimeFactors saved for further debug or any need to convert per step->per time
+    dTrajTemplate = {'vStates':[],'vTimeStamps':[],'kldBound':[],'appliedForce':[],'timeFactor':[],'mRateMat0':[]} # the structure in which the trajectory will be saves per file
     
-    for x in vX:
+    # Create the directory for the database if needed
+    mappingVec = 'MappingVector' # each value is consistent with the idx of trajectory
+    rootDb = 'StoredDataSets'
+    dbPath = rootDb+os.sep+dbName
+    try:
+        os.mkdir(dbPath)
+    except:
+        # nothing
+        pass
+    
+    for idx,x in enumerate(vX):
+        dTraj = dTrajTemplate.copy()
         mWx = pt.CalcW4DrivingForce(mW,x) # Calculate W matrix after applying force
         # Passive partial entropy production rate
         vP0 = np.random.uniform(size=(nDim))
         vP0 = vP0/sum(vP0)
         mCgTrajectory,nCgDim = pt.CreateCoarseGrainedTraj(nDim,nTimeStamps,mWx,vHiddenStates,timeRes)
         sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim)        
-        vCgTrajectory = mCgTrajectory[:,0]
-        dDataSet['mDataSet'].append(np.insert(vCgTrajectory,0,sigmaDotKld*T))
-        dDataSet['vTimeFactors'].append(T)
-    
-    return dDataSet
+
+        dTraj['vStates'] = mCgTrajectory[:,0]
+        dTraj['vTimeStamps'] = mCgTrajectory[:,1]
+        dTraj['kldBound'] = sigmaDotKld
+        dTraj['appliedForce'] = x
+        dTraj['timeFactor'] = T
+        dTraj['mRateMat0'] = mW
+        with open(dbPath+os.sep+trajFileName+'_'+str(idx)+'.pickle', 'wb') as handle:
+            pickle.dump(dTraj, handle)
+        print('Finished iteration: ',str(idx))
+            
+    # Save mapping vector
+    with open(dbPath+os.sep+mappingVec+'.pickle', 'wb') as handle:
+        pickle.dump(vX, handle)          
+        
+    return True
 ##########################################################
 
 if __name__ == '__main__':
@@ -170,16 +192,17 @@ if __name__ == '__main__':
     vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW) 
     
     # First we want data set for coarse grid of forces
-    vX = np.concatenate((np.arange(-2.,xSt-0.05,0.5),np.arange(xSt,4.,0.5)))
-    dDataSet=CreateRNeepDataSet(nTimeStamps,mW,vX)
-    with open('RneepDbCoarse.pickle', 'wb') as handle:
-        pickle.dump(dDataSet, handle)
-    # Second we want data set for fine grid of forces around stalling force
-    vX = np.concatenate((np.arange(xSt-0.005,xSt-0.0005,0.001),np.arange(xSt,xSt+0.005,0.001)))
-    dDataSet=CreateRNeepDataSet(nTimeStamps,mW,vX)
-    with open('RneepDbStalling.pickle', 'wb') as handle:
-        pickle.dump(dDataSet, handle)    
+    vX = np.concatenate((np.arange(-3.,xSt-0.05,1),np.arange(xSt,4.,1)))
+    DbName = 'RneepDbCoarse'
+    trajFileName = 'InitRateMatAsGilis'
+    dDataSet=CreateRNeepDataSet(nTimeStamps,mW,vX,DbName,trajFileName)
     
+    # # Second we want data set for fine grid of forces around stalling force
+    # vX = np.concatenate((np.arange(xSt-0.005,xSt-0.0005,0.001),np.arange(xSt,xSt+0.005,0.001)))
+    # DbName = 'RneepDbStalling'
+    # trajFileName = 'InitRateMatAsGilis'
+    # dDataSet=CreateRNeepDataSet(nTimeStamps,mW,vX,DbName,trajFileName)
+
     ###### Some old datasets that need "dust removal"
     # dTrain,dValid,dTest = CreateBasicDataSet(1e3,1e3,500,100)
     # (lenTraj,nTrain,nValid,nTest)

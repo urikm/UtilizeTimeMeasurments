@@ -16,7 +16,7 @@ import time
 import os
 
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
-import PhysicalModels.PartialTrajectories as pt 
+import PhysicalModels.PartialTrajCheatty as pt 
 import LearningModels.Neep as neep
 
 import torch
@@ -30,11 +30,15 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # %% Comparing KLD estimator to previous
 if __name__ == '__main__':
 	## Handle parsing arguments
-    parser = argparse.ArgumentParser(description="Hidden Markov EPR estimation using NEEP")
-    parser.add_argument("--save-path",default="",type=str,metavar="PATH",help="path to save result (default: none)")	
-    opt = parser.parse_args()	
-    ## UI
-    # 
+    parser = argparse.ArgumentParser(
+        description="Hidden Markov EPR estimation using NEEP"
+    )
+    parser.add_argument("--save-path",default="",type=str,metavar="PATH",help="path to save result (default: none)")
+    #parser.add_argument("--main-gpu",defualt=0,type=int,metavar="G",help="the main gpu which will hold the data and model")
+    opt = parser.parse_args()
+
+## UI
+    #
     loadDbFlag = True # True - read dataset from file; False - create new(very slow)
     rneeptFlag = False # True - use time data ; False - only states data
     plotDir = opt.save_path#'Results'+os.sep+'Analysis_0'
@@ -51,13 +55,13 @@ if __name__ == '__main__':
     # vSeqSize = np.array([128])
     maxSeqSize = np.max(vSeqSize)
     batchSize = 4096
-    vEpochs = 5*np.array([1,5,10,20,40])  # raising in order to keep same # of iterations for each seq size
-    
+    vEpochs = 5*np.array([1,5,10,20,40]) # raising in order to keep same # of iterations for each seq size
+
     flagPlot = True
     nDim = 4 # dimension of the problem
     nTimeStamps = int(maxSeqSize*batchSize*1e2) # how much time stamps will be saved
     vHiddenStates = np.array([2,3]) # states 3 and 4 for 4-D state sytem
-    
+
     ## Define base dynamics
     if 0:
         mW = pt.GenRateMat(nDim) # transition matrix
@@ -67,7 +71,7 @@ if __name__ == '__main__':
         timeRes = 0.001
 
     # Calculate Stalling data
-    vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW)    
+    vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW)
     # Init vectors for plotting
     vGrid = np.concatenate((np.arange(-1.,xSt,1),np.arange(xSt,3.,1)))
     # This used for running with different grid, dont change the upper version - its the defualt
@@ -87,9 +91,10 @@ if __name__ == '__main__':
     # optimizer = Adam(model.parameters(), lr=0.00045,weight_decay=0.00005)
 
     # trainRnn = neep.make_trainRnn(model,optimizer,seqSize)
+    
     print("Used device is:"+device)
     i=0
-    for idx,x in enumerate(vGrid): 
+    for idx,x in enumerate(vGrid):
         mWx = pt.CalcW4DrivingForce(mW,x) # Calculate W matrix after applying force
         # Passive partial entropy production rate
         vP0 = np.random.uniform(size=(nDim))
@@ -112,20 +117,19 @@ if __name__ == '__main__':
                 dDataTraj = pickle.load(handle)
 
             mCgTrajectory = dDataTraj.pop('vStates')
-            mCgTrajectory = np.array([mCgTrajectory,dDataTraj.pop('vTimeStamps')]).T
+            mCgTrajectory = np.array([mCgTrajectory,dDataTraj.pop('vTimeStamps')]).T 
             vKld[i] = dDataTraj['kldBound']
+            T = dDataTraj['timeFactor']
             mCgTrajValid = mCgTrajectory
             vKldValid[i] = vKld[i]
-            T = dDataTraj['timeFactor']
-        else:   
+        else:
             mCgTrajectory,nCgDim = pt.CreateCoarseGrainedTraj(nDim,nTimeStamps,mWx,vHiddenStates,timeRes)
             sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim)
             vKld[i] = sigmaDotKld
             mCgTrajValid,_ = pt.CreateCoarseGrainedTraj(nDim,nTimeStamps,mWx,vHiddenStates,timeRes)
             sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim)
-            vKldValid[i] = sigmaDotKld 
-            
-        k = 0       
+            vKldValid[i] = sigmaDotKld
+        k = 0
         for iSeqSize in vSeqSize:
             if rneeptFlag == False:
             # ==============================================
@@ -136,41 +140,41 @@ if __name__ == '__main__':
                 vTrainL = torch.from_numpy(vTrainL).type(torch.FloatTensor)
                 trainDataSet = torch.utils.data.TensorDataset(mTrain,vTrainL)
                 # trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=batchSize, shuffle=True)
-    
+
                 mValid = mCgTrajValid[:int(np.floor(mCgTrajValid.shape[0]/iSeqSize)*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
                 mValid = torch.from_numpy(mValid).long()
                 vValidL = np.kron(vKldValid[i]*T,np.ones(int(np.floor(mCgTrajValid.shape[0]/iSeqSize))))
                 vValidL = torch.from_numpy(vValidL).type(torch.FloatTensor)
                 validDataSet = torch.utils.data.TensorDataset(mValid,vValidL)
                 validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize, shuffle=False)
-            else:   
+            else:
             # ==============================================
             # NEEP entropy rate using time
-            # Obsolete Naive sampler - TODO : implement more "standard" sampler   
+            # Obsolete Naive sampler - TODO : implement more "standard" sampler
                 tmpStates = mCgTrajectory[:int(np.floor(mCgTrajectory.shape[0]/iSeqSize)*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
                 tmpWtd = mCgTrajectory[:int(np.floor(mCgTrajectory.shape[0]/iSeqSize)*iSeqSize),1].reshape(iSeqSize,-1,order='F').transpose()
-       
+
                 mTrain = np.concatenate((np.expand_dims(tmpStates,2),np.expand_dims(tmpWtd,2)),axis=2)
                 mTrain = torch.from_numpy(mTrain).float()
                 vTrainL = np.kron(vKld[i]*T,np.ones(int(np.floor(mCgTrajectory.shape[0]/iSeqSize))))
                 vTrainL = torch.from_numpy(vTrainL).float()
                 trainDataSet = torch.utils.data.TensorDataset(mTrain,vTrainL)
                 # trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=batchSize, shuffle=True)
-                
+
                 tmpSValid = mCgTrajValid[:int(np.floor(mCgTrajValid.shape[0]/iSeqSize)*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
                 tmpWValid = mCgTrajValid[:int(np.floor(mCgTrajValid.shape[0]/iSeqSize)*iSeqSize),1].reshape(iSeqSize,-1,order='F').transpose()
-       
+
                 mValid = np.concatenate((np.expand_dims(tmpSValid,2),np.expand_dims(tmpWValid,2)),axis=2)
                 mValid = torch.from_numpy(mValid).float()
                 vValidL = np.kron(vKldValid[i]*T,np.ones(int(np.floor(mCgTrajValid.shape[0]/iSeqSize))))
                 vValidL = torch.from_numpy(vValidL).float()
                 validDataSet = torch.utils.data.TensorDataset(mValid,vValidL)
                 validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize, shuffle=False)
-            # ==============================================            
+            # ==============================================
             
             print('Calculating estimator for x ='+str(x)+'Sequence size:'+str(iSeqSize))
             # define RNN model
-            
+
             if rneeptFlag == False:
                 model = neep.RNEEP().to(device)
                 outFileadd =''
@@ -189,15 +193,15 @@ if __name__ == '__main__':
                 tic = time.time()
                 bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)
                 toc = time.time()
-                print('Elapsed time of Epoch '+str(epoch)+' is: '+str(toc-tic))
+                print('Elapsed time of Epoch ',epoch,' is: ',toc-tic)
                 if bestLossEpoch < bestLoss:
                     mNeep[k,i] = bestEpRate
                     bestLoss = bestLossEpoch
-            k += 1   
-         
+            k += 1
+
 
         i += 1
-        
+
 # %% Save results
         print("DB mNeep:"+str(mNeep))
         with open(plotDir+os.sep+'vInformed_x_'+outFileadd+str(i-1)+'.pickle', 'wb') as handle:
@@ -205,8 +209,8 @@ if __name__ == '__main__':
         with open(plotDir+os.sep+'vPassive_x_'+outFileadd+str(i-1)+'.pickle', 'wb') as handle:
             pickle.dump(vPassive, handle)
         with open(plotDir+os.sep+'vKld_x_'+outFileadd+str(i-1)+'.pickle', 'wb') as handle:
-            pickle.dump(vKld, handle)    
+            pickle.dump(vKld, handle)
         with open(plotDir+os.sep+'mNeep_x_'+outFileadd+str(i-1)+'.pickle', 'wb') as handle:
-            pickle.dump(mNeep, handle)            
-        
+            pickle.dump(mNeep, handle)
+
 
