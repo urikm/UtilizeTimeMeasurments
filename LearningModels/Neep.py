@@ -197,7 +197,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
                         bestEpErr = torch.abs(predEntRate-y_val[0])/y_val[0]
                         bestEpErr = bestEpErr.cpu().item()
                         bestValidLoss = avgValLoss
-            torch.cuda.empty_cache()
+                    torch.cuda.empty_cache()
         if iEpoch % 1 == 0:                
             print('Epoch : ',iEpoch+1,'\t' 'Best Loss :',bestValidLoss, '\t' 'Best EP rate err Train :', bestEpErr)
         

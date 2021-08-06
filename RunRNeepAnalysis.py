@@ -168,7 +168,7 @@ if __name__ == '__main__':
                 validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize, shuffle=False)
             # ==============================================            
             
-            print('Calculating estimator for x ='+str(x)+'Sequence size:'+str(iSeqSize))
+            print('Calculating estimator for x = '+str(x)+' ; Sequence size: '+str(iSeqSize))
             # define RNN model
             
             if rneeptFlag == False:
