@@ -181,8 +181,8 @@ if __name__ == '__main__':
             else:
                 model = neep.RNEEPT().to(device)
                 outFileadd ='T_'
-            if device == 'cuda':
-                model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
+            #if device == 'cuda':
+            #    model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
             # defining the optimizer
             # optimizer = SGD(model.parameters(),lr=vLrate[k])
             optimizer = Adam(model.parameters(),lr=1e-4,weight_decay=0.5e-4)

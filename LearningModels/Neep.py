@@ -188,16 +188,18 @@ def make_trainRnn(model,optimizer,seqSize,device):
                     # predEntRate, _, _, _, _ = stats.linregress(
                     #     torch.arange(len(avgValScores)) * (seqSize - 1), avgValScores
                     # )
-                    predEntRate = torch.mean(avgValScores)/len(validationLoader)/(seqSize-1)
+                    predEntRate = torch.mean(avgValScores)/(seqSize-1)
                     avgValLoss = avgValLosses/len(validationLoader)
                     # avgValScore = np.average(np.array(avgValScores))
-                    
+                    ttmp =torch.mean(avgValScores)/(seqSize-1)
+                    #print('DBG , x_val: ' + str(avgValScores))
+                    #print('DBG , avgValLoss: ' + str(avgValLosses))
                     if avgValLoss <= bestValidLoss:
-                        bestEpRate = predEntRate.cpu().item()
+                        bestEpRate = predEntRate.cpu()
                         bestEpErr = torch.abs(predEntRate-y_val[0])/y_val[0]
                         bestEpErr = bestEpErr.cpu().item()
                         bestValidLoss = avgValLoss
-                    torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
         if iEpoch % 1 == 0:                
             print('Epoch : ',iEpoch+1,'\t' 'Best Loss :',bestValidLoss, '\t' 'Best EP rate err Train :', bestEpErr)
         
