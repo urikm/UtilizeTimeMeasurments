@@ -24,7 +24,7 @@ from torch.optim import Adam, SGD, Adagrad, RMSprop , Rprop
 
 import pickle
  
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 # device = 'cpu'
 
 # %% Comparing KLD estimator to previous
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
 ## UI
     #
-    loadDbFlag = True # True - read dataset from file; False - create new(very slow)
+    loadDbFlag = True #  True - read dataset from file; False - create new(very slow)
     rneeptFlag = False # True - use time data ; False - only states data
     plotDir = opt.save_path#'Results'+os.sep+'Analysis_0'
     try:
@@ -51,11 +51,12 @@ if __name__ == '__main__':
     dbFileName = 'InitRateMatAsGilis'
     logFile = 'log.txt'
 
-    vSeqSize = np.array([3,16,32,64,128])
-    # vSeqSize = np.array([128])
+    vSeqSize = np.array([3,8,32,64,128])
+    #vSeqSize = np.array([128])
     maxSeqSize = np.max(vSeqSize)
     batchSize = 4096
     vEpochs = 5*np.array([1,5,10,20,40]) # raising in order to keep same # of iterations for each seq size
+    #vEpochs = 5np.array([100])
 
     flagPlot = True
     nDim = 4 # dimension of the problem
@@ -181,8 +182,8 @@ if __name__ == '__main__':
             else:
                 model = neep.RNEEPT().to(device)
                 outFileadd ='T_'
-            #if device == 'cuda':
-            #    model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
+            if device == 'cuda:0':
+                model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
             # defining the optimizer
             # optimizer = SGD(model.parameters(),lr=vLrate[k])
             optimizer = Adam(model.parameters(),lr=1e-4,weight_decay=0.5e-4)
