@@ -80,14 +80,11 @@ if __name__ == '__main__':
     vKldValid =  np.zeros(np.size(vGrid))
     vFull = np.zeros(np.size(vGrid))
     mNeep = np.zeros([np.size(vSeqSize),np.size(vGrid)])
-    # define RNN model
-    # model = SimpleNet(lenOfTraj)
-    # model = neep.RNEEP()
-    # # defining the optimizer
-    # optimizer = Adam(model.parameters(), lr=0.00045,weight_decay=0.00005)
+    
 
-    # trainRnn = neep.make_trainRnn(model,optimizer,seqSize)
     print("Used device is:"+device)
+    
+    # For each driving force in vGrid, estimate the ERP 
     i=0
     for idx,x in enumerate(vGrid): 
         mWx = pt.CalcW4DrivingForce(mW,x) # Calculate W matrix after applying force

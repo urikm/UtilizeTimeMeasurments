@@ -42,15 +42,17 @@ class RNEEP(Module):
         bsz = x.size(1)
         h_f = self.init_hidden(bsz)
         emb_forward = self.encoder(x)
-        output_f, _ = self.rnn(emb_forward, h_f)
+        output_f, _ = self.rnn(emb_forward)
 
         h_r = self.init_hidden(bsz)
         x_r = torch.flip(x, [0])
         emb_reverse = self.encoder(x_r)
-        output_r, _ = self.rnn(emb_reverse, h_r)
-
-        S = self.fc(output_f.mean(dim=0)) - self.fc(output_r.mean(dim=0))
-        # S = self.fc(output_f[-1:,:,:]) - self.fc(output_r[-1:,:,:])
+        output_r, _ = self.rnn(emb_reverse)
+        forSeq = output_f.mean(dim=0)
+        revSeq = output_r.mean(dim=0)
+        diffSeq = forSeq-revSeq 
+        S = self.fc(diffSeq)
+        #S = self.fc(output_f[-1:,:,:]) - self.fc(output_r[-1:,:,:])
         #print("In Model ; Input size: " + str(x.size()) + " ; Output size: " + str(S.size()))
         return S
 
@@ -65,7 +67,7 @@ class RNEEP(Module):
     def count_parameters(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
-# %% RNEEP - with time data as input
+# %% RNEEP - with time data as input ; TODO : make it working
 class RNEEPT(Module):
     def __init__(self):
         super(RNEEPT, self).__init__()
@@ -152,8 +154,8 @@ def make_trainRnn(model,optimizer,seqSize,device):
         bestValidLoss = 1e3 # Init
         bestEpRate = 0
         bestEpErr = 1e6    
-        k=0
         
+        k=0        
         for x_batch, y_batch in trainLoader:
             model.train()
             
@@ -166,9 +168,16 @@ def make_trainRnn(model,optimizer,seqSize,device):
             #print("Out Model Train: Input size " + str(x_batch.size()) + " ; Output size: " + str(entropy_train.size()))
             optimizer.zero_grad()       
             # computing the training
-            loss_train = (-entropy_train + torch.exp(-entropy_train)).mean()
+            loss_train = ((-entropy_train + torch.exp(-entropy_train))).mean()
+                        
             # computing the updated weights of all the model parameters
             loss_train.backward()
+            #print("DBG ; rnn weights_hh:\n"+str(model.module.rnn.weight_hh_l0))
+            #print("DBG ; rnn weights_ih:\n"+str(model.module.rnn.weight_ih_l0)) 
+            #print("DBG ; rnn grad weights_hh:\n"+str(model.module.rnn.weight_hh_l0.grad))
+            #print("DBG ; enn grad weights_ih:\n"+str(model.module.rnn.weight_ih_l0.grad))
+            #print("DBG ; emb grad weigths:\n"+str(model.module.encoder.weight.grad))
+            #print("DBG ; fc  grad weights:\n"+str(model.module.fc.weight.grad))
             optimizer.step()           
             # avgTrainLosses.append(-output_train.mean().item())
             
@@ -190,22 +199,22 @@ def make_trainRnn(model,optimizer,seqSize,device):
                         val_loss = (-entropy_val + torch.exp(-entropy_val)).mean()
                         avgValLosses += val_loss
                         avgValScores.append(entropy_val)
-                    avgValScores = torch.cat(avgValScores).cpu().squeeze().numpy()
+                    avgValScores = torch.cat(avgValScores).squeeze()
                     #print("DBG , avgValSCores: "+str(avgValScores))
-                    avgValScores = np.cumsum(avgValScores)
-                    predEntRate, _, _, _, _ = stats.linregress(
-                        torch.arange(len(avgValScores)) * (seqSize - 1), avgValScores
-                    )
-                    #predEntRate = torch.mean(avgValScores)/(seqSize-1)
+                    #avgValScores = np.cumsum(avgValScores)
+                    #predEntRate, _, _, _, _ = stats.linregress(
+                    #    torch.arange(len(avgValScores)) * (seqSize - 1), avgValScores
+                    #)
+                    predEntRate = torch.mean(avgValScores)/(seqSize-1)
                     avgValLoss = avgValLosses/len(validationLoader)
                     # avgValScore = np.average(np.array(avgValScores))
                     #print('DBG , pred ERP: ' + str(predEntRate))
                     #print('DBG , avgValLoss: ' + str(avgValLosses))
                     if avgValLoss <= bestValidLoss:
-                        #bestEpRate = predEntRate.cpu()
-                        bestEpRate = predEntRate
+                        bestEpRate = predEntRate.cpu().numpy()
+                        #bestEpRate = predEntRate
                         y_valCpu = y_val[0].cpu().numpy()
-                        bestEpErr = np.abs(predEntRate-y_valCpu)/y_valCpu
+                        bestEpErr = np.abs(bestEpRate-y_valCpu)/y_valCpu
                         #bestEpErr = bestEpErr.cpu().item()
                         bestValidLoss = avgValLoss
             torch.cuda.empty_cache()
@@ -214,3 +223,4 @@ def make_trainRnn(model,optimizer,seqSize,device):
         
         return bestValidLoss,bestEpRate,bestEpErr
     return trainRnn  
+
