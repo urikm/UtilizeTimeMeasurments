@@ -24,7 +24,7 @@ from torch.optim import Adam, SGD, Adagrad, RMSprop , Rprop
 
 import pickle
  
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 # device = 'cpu'
 
 # %% Comparing KLD estimator to previous
@@ -80,14 +80,11 @@ if __name__ == '__main__':
     vKldValid =  np.zeros(np.size(vGrid))
     vFull = np.zeros(np.size(vGrid))
     mNeep = np.zeros([np.size(vSeqSize),np.size(vGrid)])
-    # define RNN model
-    # model = SimpleNet(lenOfTraj)
-    # model = neep.RNEEP()
-    # # defining the optimizer
-    # optimizer = Adam(model.parameters(), lr=0.00045,weight_decay=0.00005)
+    
 
-    # trainRnn = neep.make_trainRnn(model,optimizer,seqSize)
     print("Used device is:"+device)
+    
+    # For each driving force in vGrid, estimate the ERP 
     i=0
     for idx,x in enumerate(vGrid): 
         mWx = pt.CalcW4DrivingForce(mW,x) # Calculate W matrix after applying force
@@ -172,13 +169,14 @@ if __name__ == '__main__':
             # define RNN model
             
             if rneeptFlag == False:
-                model = neep.RNEEP().to(device)
+                model = neep.RNEEP()
                 outFileadd =''
             else:
-                model = neep.RNEEPT().to(device)
+                model = neep.RNEEPT()
                 outFileadd ='T_'
-            #if device == 'cuda':
-            #    model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
+            if device == 'cuda:0':
+                model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
+            model.to(device)
             # defining the optimizer
             # optimizer = SGD(model.parameters(),lr=vLrate[k])
             optimizer = Adam(model.parameters(),lr=1e-4,weight_decay=0.5e-4)
@@ -187,7 +185,7 @@ if __name__ == '__main__':
             for epoch in range(int(vEpochs[k])):
                 trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=batchSize, shuffle=False)
                 tic = time.time()
-                bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)
+                bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)/T
                 toc = time.time()
                 print('Elapsed time of Epoch '+str(epoch)+' is: '+str(toc-tic))
                 if bestLossEpoch < bestLoss:
