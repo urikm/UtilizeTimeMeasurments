@@ -128,15 +128,15 @@ if __name__ == '__main__':
             if rneeptFlag == False:
             # ==============================================
             # # NEEP entropy rate
-                mTrain = torch.from_numpy(mCgTrajectory[:,0]).long()
+                mTrain = torch.from_numpy(mCgTrajectory[:int(np.floor(len(mCgTrajectory[:,0])/iSeqSize)*iSeqSize),0]).long()
                 vTrainL = np.kron(vKld[i]*T,np.ones(len(mTrain)))
                 vTrainL = torch.from_numpy(vTrainL).type(torch.FloatTensor)
                 trainDataSet = torch.utils.data.TensorDataset(mTrain,vTrainL)
                 # trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=batchSize, shuffle=True)
     
                 # mValid = mCgTrajValid[:int(np.floor(mCgTrajValid.shape[0]/iSeqSize)*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
-                mValid = torch.from_numpy(mCgTrajValid[:,0]).long()
-                vValidL = np.kron(vKldValid[i]*T,np.ones(len(mValid)))
+                mValid = torch.from_numpy(mCgTrajValid[:int(np.floor(len(mCgTrajValid[:,0])/iSeqSize)*iSeqSize),0]).long()
+                vValidL = np .kron(vKldValid[i]*T,np.ones(len(mValid)))
                 vValidL = torch.from_numpy(vValidL).type(torch.FloatTensor)
                 validDataSet = torch.utils.data.TensorDataset(mValid,vValidL)
                 validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize, shuffle=False)
@@ -183,14 +183,20 @@ if __name__ == '__main__':
             trainRnn = neep.make_trainRnn(model,optimizer,iSeqSize,device)
             bestLoss = 1e3
             
-            # Define sampler
-            baseInd=np.repeat(np.array([range(len(mTrain)),]),iSeqSize)
+            # Define sampler - train and validation
+            baseInd=np.repeat(np.array([range(len(mTrain)-iSeqSize-1),]),iSeqSize)
             addInd=np.repeat(np.array([range(iSeqSize),]),len(mTrain),axis=0).flatten()
             seqInd=baseInd+addInd
             batchInd=seqInd.reshape(-1,iSeqSize)
+            
+            baseInd=np.repeat(np.array([range(len(mValid)-iSeqSize-1),]),iSeqSize)
+            addInd=np.repeat(np.array([range(iSeqSize),]),len(mValid),axis=0).flatten()
+            seqIndValid=baseInd+addInd            
+            batchIndValid =seqInd.reshape(-1,iSeqSize)
+            
             for epoch in range(int(nEpochs)):
                 validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize,sampler=batchInd)
-                trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=batchSize,sampler=np.random.permutation(batchInd))
+                trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=batchSize,sampler=np.random.permutation(batchIndValid))
                 tic = time.time()
                 bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)/T
                 toc = time.time()
