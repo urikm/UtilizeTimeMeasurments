@@ -36,7 +36,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()	
     ## UI
     # 
-    loadDbFlag = True # True - read dataset from file; False - create new(very slow)
+    loadDbFlag = False # True - read dataset from file; False - create new(very slow)
     rneeptFlag = False # True - use time data ; False - only states data
     plotDir = opt.save_path#'Results'+os.sep+'Analysis_0'
     try:
@@ -120,7 +120,7 @@ if __name__ == '__main__':
             sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim)
             vKld[i] = sigmaDotKld
             mCgTrajValid,_ = pt.CreateCoarseGrainedTraj(nDim,nTimeStamps,mWx,vHiddenStates,timeRes)
-            sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim)
+            sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajValid,nCgDim)
             vKldValid[i] = sigmaDotKld 
             
         k = 0       
@@ -188,15 +188,15 @@ if __name__ == '__main__':
             #addInd=np.repeat(np.array([range(iSeqSize),]),len(mTrain),axis=0).flatten()
             seqInd=baseInd #+addInd
             batchIndValid = seqInd.reshape((-1,batchSize,iSeqSize)) #Manual batch sampler
-            batchIndValid = batchIndValid[:-1,:,:] #Drop last batch due to exceeding index
+            batchIndValid = batchIndValid[:-int(np.ceil(maxSeqSize/batchSize)),:,:] #Drop last batch due to exceeding index
 #            print("DBG ; max train ind: "+np.max(batchIndValid))
 
             baseInd=np.repeat(np.array([range(len(mTrain)),]),iSeqSize)
             addInd=np.repeat(np.array([range(iSeqSize),]),len(mTrain),axis=0).flatten()
             seqInd=baseInd+addInd
             batchInd = seqInd.reshape((-1,batchSize,iSeqSize)) #Manual batch sampler
-            batchInd = batchInd[:-1,:,:] #Drop last batch due to exceeding index
-            #print("DBG ; max train ind: "+str(np.max(batchInd)))
+            batchInd = batchInd[:-int(np.ceil(maxSeqSize/batchSize)),:,:] #Drop last batch due to exceeding index
+            print("DBG ; max train ind: "+str(batchInd.max())+" ; max valid ind: "+str(batchIndValid.max()))
 
             for epoch in range(vEpochs[k]):
                 validLoader =  torch.utils.data.DataLoader(validDataSet,batch_sampler=batchIndValid)

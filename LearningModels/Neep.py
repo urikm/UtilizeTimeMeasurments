@@ -55,10 +55,10 @@ class RNEEP(Module):
 
     # Init model weights
     def init_hidden(self, bsz):
-        weight = next(self.parameters())
-        return weight.new_zeros(self.nlayers, bsz, self.nhid).detach()
-        #hidden = torch.zeros(self.nlayers, bsz, self.nhid)
-        #return hidden.cuda()
+        #weight = next(self.parameters())
+        #return weight.new_zeros(self.nlayers, bsz, self.nhid).detach()
+        hidden = torch.zeros(self.nlayers, bsz, self.nhid)
+        return hidden.cuda()
 
     # Extract model size
     def count_parameters(self):
@@ -183,7 +183,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
             
             # Use validation step only if it's last batch or it modolus of 1e3
             k+=1
-            if (k >= 1000 and not(k % 1000)) or (k < 1000 and k == len(trainLoader)):
+            if (k >= 1000 and not(k % 1000)) or (k == len(trainLoader)):
                 with torch.no_grad():
                     for x_val, y_val in validationLoader:
                         x_val = x_val.squeeze().to(device)
@@ -208,10 +208,10 @@ def make_trainRnn(model,optimizer,seqSize,device):
                     #print('DBG , pred ERP: ' + str(predEntRate))
                     #print('DBG , avgValLoss: ' + str(avgValLosses))
                     if avgValLoss <= bestValidLoss:
-                        bestEpRate = predEntRate.cpu().numpy()
-                        #bestEpRate = predEntRate
-                        y_valCpu = y_val[0][0].cpu().numpy()
-                        bestEpErr = np.abs(bestEpRate-y_valCpu)/y_valCpu
+                        #bestEpRate = predEntRate.cpu().numpy()
+                        bestEpRate = predEntRate
+                        y_valCpu = y_val[0][0]
+                        bestEpErr = torch.abs(bestEpRate-y_valCpu)/y_valCpu
                         #bestEpErr = bestEpErr.cpu().item()
                         bestValidLoss = avgValLoss
                         #print("DBG ; yval[0][0]: "+str(y_valCpu))
