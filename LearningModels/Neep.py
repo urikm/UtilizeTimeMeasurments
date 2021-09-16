@@ -185,13 +185,12 @@ def make_trainRnn(model,optimizer,seqSize,device):
             
             # Use validation step only if it's last batch or it modolus of 1e3
             k+=1
-            if (k >= 1000 and not(k % 1000)) or ( k < 1000 and k == len(trainLoader)):
+            if (k >= 1000 and not(k % 1000)) or (k == len(trainLoader)):
                 with torch.no_grad():
                     for x_val, y_val in validationLoader:
                         x_val = x_val.squeeze().to(device)
                         y_val = y_val.squeeze().to(device)                    
                         model.eval()
-                        
                         entropy_val = model(x_val)
                         #print("Out Model Val: Input size " + str(x_val.size()) + " ; Output size: " + str(entropy_val.size()))
                         # y_val = y_val.unsqueeze(1)
@@ -199,6 +198,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
                         avgValLosses += val_loss
                         avgValScores.append(entropy_val)
                     avgValScores = torch.cat(avgValScores).squeeze()
+#                    print("DBG ; train loader size: " +str(len(trainLoader))+" ; k: "+str(k)+" ; valid loader size: "+str(len(validationLoader)))
                     #print("DBG , avgValSCores: "+str(avgValScores)+" ; Shape: "+str(avgValScores.shape))
                     avgValScores = np.cumsum(avgValScores.cpu().numpy())
                     predEntRate, _, _, _, _ = stats.linregress(
@@ -212,12 +212,12 @@ def make_trainRnn(model,optimizer,seqSize,device):
                     if avgValLoss <= bestValidLoss:
                         bestEpRate = predEntRate #.cpu().numpy()
                         #print("DBG , bestEp Rate: "+str(bestEpRate))
-                        y_valCpu = y_val[0,0].cpu().numpy()
+                        y_valCpu = y_val[0,0]
                         #print("DBG , y_valCpu: "+str(y_valCpu))
-                        bestEpErr = np.abs(bestEpRate-y_valCpu)/y_valCpu
+                        bestEpErr = torch.abs(bestEpRate-y_valCpu)/y_valCpu
                         #bestEpErr = bestEpErr.cpu().item()
                         bestValidLoss = avgValLoss
-                    torch.cuda.empty_cache()
+#                    torch.cuda.empty_cache()
             torch.cuda.empty_cache()
         if iEpoch % 1 == 0:                
             print('Epoch : ',iEpoch+1,'\t' 'Best Loss :',bestValidLoss, '\t' 'Best EP rate err Train :', bestEpErr)

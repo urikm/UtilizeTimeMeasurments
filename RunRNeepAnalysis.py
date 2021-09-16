@@ -18,6 +18,7 @@ import os
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.PartialTrajectories as pt 
 import LearningModels.Neep as neep
+from RNeepSampler import CartesianSeqSampler as CSS
 
 import torch
 import torch.utils.data as dat
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()	
     ## UI
     # 
-    loadDbFlag = True # True - read dataset from file; False - create new(very slow)
+    loadDbFlag = False # True - read dataset from file; False - create new(very slow)
     rneeptFlag = False # True - use time data ; False - only states data
     plotDir = opt.save_path#'Results'+os.sep+'Analysis_0'
     try:
@@ -52,7 +53,8 @@ if __name__ == '__main__':
     # vSeqSize = np.array([128])
     maxSeqSize = np.max(vSeqSize)
     batchSize = 4096
-    vEpochs = 5*np.array([1,5,10,20,40])    
+    nEpochs = 10
+    nTrainIterPerEpoch = 10000
     
     flagPlot = True
     nDim = 4 # dimension of the problem
@@ -128,24 +130,24 @@ if __name__ == '__main__':
             if rneeptFlag == False:
             # ==============================================
             # # NEEP entropy rate
-                mTrain = torch.from_numpy(mCgTrajectory[:int(np.floor(len(mCgTrajectory[:,0])/batchSize/iSeqSize)*batchSize*iSeqSize),0]).long()
+                mTrain = torch.from_numpy(mCgTrajectory[:,0]).long()
                 vTrainL = np.kron(vKld[i]*T,np.ones(len(mTrain)))
                 vTrainL = torch.from_numpy(vTrainL).type(torch.FloatTensor)
                 trainDataSet = torch.utils.data.TensorDataset(mTrain,vTrainL)
                 # trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=batchSize, shuffle=True)
     
                 # mValid = mCgTrajValid[:int(np.floor(mCgTrajValid.shape[0]/iSeqSize)*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
-                mValid = torch.from_numpy(mCgTrajValid[:int(np.floor(len(mCgTrajValid[:,0])/batchSize/iSeqSize)*batchSize*iSeqSize),0]).long()
+                mValid = torch.from_numpy(mCgTrajValid[:,0]).long()
                 vValidL = np .kron(vKldValid[i]*T,np.ones(len(mValid)))
                 vValidL = torch.from_numpy(vValidL).type(torch.FloatTensor)
                 validDataSet = torch.utils.data.TensorDataset(mValid,vValidL)
-                #validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize, shuffle=False)
+                validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize, shuffle=False)
             else:   
             # ==============================================
             # NEEP entropy rate using time
             # Obsolete Naive sampler - TODO : implement more "standard" sampler   
-                tmpStates = mCgTrajectory[:int(np.floor(mCgTrajectory.shape[0]/batchSize/iSeqSize)*batchSize*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
-                tmpWtd = mCgTrajectory[:int(np.floor(mCgTrajectory.shape[0]/batchSize/iSeqSize)*batchSize*iSeqSize),1].reshape(iSeqSize,-1,order='F').transpose()
+                tmpStates = mCgTrajectory[:int(np.floor(mCgTrajectory.shape[0]/iSeqSize)*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
+                tmpWtd = mCgTrajectory[:int(np.floor(mCgTrajectory.shape[0]/iSeqSize)*iSeqSize),1].reshape(iSeqSize,-1,order='F').transpose()
        
                 mTrain = np.concatenate((np.expand_dims(tmpStates,2),np.expand_dims(tmpWtd,2)),axis=2)
                 mTrain = torch.from_numpy(mTrain).float()
@@ -184,29 +186,28 @@ if __name__ == '__main__':
             bestLoss = 1e3
             
             # Define sampler - train and validation
-            baseInd=np.array([range(len(mValid)),])
-            #addInd=np.repeat(np.array([range(iSeqSize),]),len(mTrain),axis=0).flatten()
-            seqInd=baseInd #+addInd
-            batchIndValid = seqInd.reshape((-1,batchSize,iSeqSize)) #Manual batch sampler
-            batchIndValid = batchIndValid[:-1,:,:] #Drop last batch due to exceeding index
+#            baseInd=np.array([range(len(mValid)),])
+#            #addInd=np.repeat(np.array([range(iSeqSize),]),len(mTrain),axis=0).flatten()
+#            seqInd=baseInd #+addInd
+#            batchIndValid = seqInd.reshape((-1,batchSize,iSeqSize)) #Manual batch sampler
+#            batchIndValid = batchIndValid[:-int(np.ceil(maxSeqSize/batchSize)),:,:] #Drop last batch due to exceeding index
             #print("DBG ; last valid shape: "+str(batchIndValid.shape))
 
-            baseInd=np.repeat(np.array([range(len(mTrain)),]),iSeqSize)
-            addInd=np.repeat(np.array([range(iSeqSize),]),len(mTrain),axis=0).flatten()
-            seqInd=baseInd+addInd            
-            batchInd = seqInd.reshape((-1,batchSize,iSeqSize)) #Manual batch sampler
-            batchInd = batchInd[:-1,:,:] #Drop last batch due to exceeding index
-            print("DBG ; max ind: "+str(np.max(batchInd))+" ; Traj len: "+str(len(mTrain)))
-            for epoch in range(vEpochs[k]):
-                validLoader =  torch.utils.data.DataLoader(validDataSet, sampler=batchIndValid)
-                trainLoader =  torch.utils.data.DataLoader(trainDataSet, sampler=np.random.permutation(batchInd))
+#            baseInd=np.repeat(np.array([range(len(mTrain)),]),iSeqSize)
+#            addInd=np.repeat(np.array([range(iSeqSize),]),len(mTrain),axis=0).flatten()
+#            seqInd=baseInd+addInd
+#            batchInd = seqInd.reshape((-1,batchSize,iSeqSize)) #Manual batch sampler
+#            batchInd = batchInd[:-int(np.ceil(maxSeqSize/batchSize)),:,:] #Drop last batch due to exceeding index
+
+            for epoch in range(int(nEpochs)):
+                validLoader =  torch.utils.data.DataLoader(validDataSet, num_workers=2, sampler = CSS(1,validDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=False), pin_memory=True)
+                trainLoader =  torch.utils.data.DataLoader(trainDataSet, num_workers=2, sampler = CSS(1,trainDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=True), pin_memory=True)
                 tic = time.time()
-                bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)
+                bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)/T
                 toc = time.time()
-                print('Elapsed time of Epoch '+str(epoch+1)+' is: '+str(toc-tic))
+                print('Elapsed time of Epoch '+str(epoch)+' is: '+str(toc-tic))
                 if bestLossEpoch < bestLoss:
-                    #print("DBG ; T: "+str(T)+" ; force: " +str(x))
-                    mNeep[k,i] = bestEpRate/T
+                    mNeep[k,i] = bestEpRate
                     bestLoss = bestLossEpoch
             k += 1   
          
@@ -223,17 +224,5 @@ if __name__ == '__main__':
             pickle.dump(vKld, handle)    
         with open(plotDir+os.sep+'mNeep_x_'+outFileadd+str(i-1)+'.pickle', 'wb') as handle:
             pickle.dump(mNeep, handle)            
-
-
-
-
-
-
-
-
-
-
-
-
-
+        
 

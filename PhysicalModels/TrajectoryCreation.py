@@ -26,24 +26,36 @@ def CreateTrajectory(nDim,nTimeStamps,initState,*args):
         mW = GenRateMat(nDim)
     elif len(args)==1:
         mW = args[0]
-
+    
     mP = (mW-np.diag(np.diagonal(mW)))/abs(np.diagonal(mW)) # calculate discrete PDF for states jumps
     mTrajectory = np.zeros((nTimeStamps, 2))
 
-    currState = initState
+    currState = initState[0]
+    # memory for indices for each state
+    mMem = np.zeros([nDim,nTimeStamps],dtype=int)
+    vCount = np.zeros(nDim)
     
     ## For loop to create trajectory (according to Gillespie Algorithm)
     for iStep in range(nTimeStamps):
-    # randomize waiting time 
-        waitingTime = np.random.exponential(1/abs(mW[currState,currState]))
     # using the calculated PDF randomize jump
         # nextState = np.random.choice(nDim,1,p=mP[:,currState].reshape(nDim))
-        nextState = np.array(rd.choices(range(nDim),weights=mP[:,currState].reshape(nDim)))
+        # nextState = np.array(rd.choices(range(nDim),weights=mP[:,currState].reshape(nDim)))
+        ### from neep paper
+        mc = np.random.uniform(0.0, 1.0)
+        interval = np.cumsum(mP[:,currState])
+        nextState = np.sum(interval < mc)
+        ###
     # save jumping step    
         mTrajectory[iStep,0] = currState
-        mTrajectory[iStep,1] = waitingTime
+        mMem[currState,int(vCount[currState])] = iStep
+        vCount[currState] = vCount[currState] + 1
     # update current state
         currState = nextState
+    # randomize waiting times   
+    for iState in range(nDim):  
+        nCounts = int(vCount[iState])
+        waitingTime = np.random.exponential(1/abs(mW[iState,iState]), nCounts)
+        mTrajectory[mMem[iState, 0:nCounts], 1] = waitingTime
 
     return mTrajectory, mW
 
