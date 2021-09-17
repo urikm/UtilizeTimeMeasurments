@@ -200,11 +200,11 @@ def make_trainRnn(model,optimizer,seqSize,device):
                     avgValScores = torch.cat(avgValScores).squeeze()
 #                    print("DBG ; train loader size: " +str(len(trainLoader))+" ; k: "+str(k)+" ; valid loader size: "+str(len(validationLoader)))
                     #print("DBG , avgValSCores: "+str(avgValScores)+" ; Shape: "+str(avgValScores.shape))
-                    avgValScores = np.cumsum(avgValScores.cpu().numpy())
-                    predEntRate, _, _, _, _ = stats.linregress(
-                        np.arange(len(avgValScores))*(seqSize-1), avgValScores
-                    )
-                    #predEntRate = torch.mean(avgValScores)/(seqSize-1)
+                    #avgValScores = np.cumsum(avgValScores.cpu().numpy())
+                    #predEntRate, _, _, _, _ = stats.linregress(
+                    #    np.arange(len(avgValScores))*(seqSize-1), avgValScores
+                    #)
+                    predEntRate = torch.mean(avgValScores)/(seqSize-1)
                     avgValLoss = avgValLosses/len(validationLoader)
                     # avgValScore = np.average(np.array(avgValScores))
                     #print('DBG , pred ERP: ' + str(predEntRate))
@@ -217,7 +217,6 @@ def make_trainRnn(model,optimizer,seqSize,device):
                         bestEpErr = torch.abs(bestEpRate-y_valCpu)/y_valCpu
                         #bestEpErr = bestEpErr.cpu().item()
                         bestValidLoss = avgValLoss
-#                    torch.cuda.empty_cache()
             torch.cuda.empty_cache()
         if iEpoch % 1 == 0:                
             print('Epoch : ',iEpoch+1,'\t' 'Best Loss :',bestValidLoss, '\t' 'Best EP rate err Train :', bestEpErr)

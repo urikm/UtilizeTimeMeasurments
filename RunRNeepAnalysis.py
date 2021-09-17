@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # vSeqSize = np.array([128])
     maxSeqSize = np.max(vSeqSize)
     batchSize = 4096
-    nEpochs = 10
+    nEpochs = 5
     nTrainIterPerEpoch = 10000
     
     flagPlot = True
@@ -167,7 +167,7 @@ if __name__ == '__main__':
                 validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize, shuffle=False)
             # ==============================================            
             
-            print('Calculating estimator for x = '+str(x)+' ; Sequence size: '+str(iSeqSize))
+            print('Calculating estimator for x = '+str(x)+' ; Sequence size: '+str(iSeqSize)+" ; KLD: "+str(vKldValid[i]))
             # define RNN model
             
             if rneeptFlag == False:
@@ -200,14 +200,14 @@ if __name__ == '__main__':
 #            batchInd = batchInd[:-int(np.ceil(maxSeqSize/batchSize)),:,:] #Drop last batch due to exceeding index
 
             for epoch in range(int(nEpochs)):
-                validLoader =  torch.utils.data.DataLoader(validDataSet, num_workers=2, sampler = CSS(1,validDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=False), pin_memory=True)
-                trainLoader =  torch.utils.data.DataLoader(trainDataSet, num_workers=2, sampler = CSS(1,trainDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=True), pin_memory=True)
+                validLoader =  torch.utils.data.DataLoader(validDataSet, num_workers=3, sampler = CSS(1,validDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=False), pin_memory=True)
+                trainLoader =  torch.utils.data.DataLoader(trainDataSet, num_workers=3, sampler = CSS(1,trainDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=True), pin_memory=True)
                 tic = time.time()
-                bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)/T
+                bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)
                 toc = time.time()
                 print('Elapsed time of Epoch '+str(epoch)+' is: '+str(toc-tic))
                 if bestLossEpoch < bestLoss:
-                    mNeep[k,i] = bestEpRate
+                    mNeep[k,i] = bestEpRate/T
                     bestLoss = bestLossEpoch
             k += 1   
          
