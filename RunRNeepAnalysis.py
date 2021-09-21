@@ -53,8 +53,8 @@ if __name__ == '__main__':
     # vSeqSize = np.array([128])
     maxSeqSize = np.max(vSeqSize)
     batchSize = 4096
-    nEpochs = 5
-    nTrainIterPerEpoch = 10000
+    nEpochs = 10
+    nTrainIterPerEpoch = 5000
     
     flagPlot = True
     nDim = 4 # dimension of the problem
@@ -181,7 +181,7 @@ if __name__ == '__main__':
             model.to(device)
             # defining the optimizer
             # optimizer = SGD(model.parameters(),lr=vLrate[k])
-            optimizer = Adam(model.parameters(),lr=1e-4,weight_decay=0.5e-4)
+            optimizer = Adam(model.parameters(),lr=2e-4,weight_decay=1e-4)
             trainRnn = neep.make_trainRnn(model,optimizer,iSeqSize,device)
             bestLoss = 1e3
             
@@ -205,7 +205,7 @@ if __name__ == '__main__':
                 tic = time.time()
                 bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)
                 toc = time.time()
-                print('Elapsed time of Epoch '+str(epoch)+' is: '+str(toc-tic))
+                print('Elapsed time of Epoch '+str(epoch+1)+' is: '+str(toc-tic)+" ; num of model params: "+str(model.module.count_parameters())+" ; KLD est: "+str(bestEpRate/T))
                 if bestLossEpoch < bestLoss:
                     mNeep[k,i] = bestEpRate/T
                     bestLoss = bestLossEpoch

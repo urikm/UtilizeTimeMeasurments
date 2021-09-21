@@ -167,7 +167,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
             #print("Out Model Train: Input size " + str(x_batch.size()) + " ; Output size: " + str(entropy_train.size()))
             optimizer.zero_grad()       
             # computing the training
-            loss_train = ((-entropy_train + torch.exp(-entropy_train))).mean()
+            loss_train = (2*(-entropy_train + torch.exp(-entropy_train))).mean()
                         
             # computing the updated weights of all the model parameters
             loss_train.backward()
@@ -197,8 +197,9 @@ def make_trainRnn(model,optimizer,seqSize,device):
                         val_loss = (-entropy_val + torch.exp(-entropy_val)).mean()
                         avgValLosses += val_loss
                         avgValScores.append(entropy_val)
+                        torch.cuda.empty_cache()
                     avgValScores = torch.cat(avgValScores).squeeze()
-#                    print("DBG ; train loader size: " +str(len(trainLoader))+" ; k: "+str(k)+" ; valid loader size: "+str(len(validationLoader)))
+                    #print("DBG ; train loader size: " +str(len(trainLoader))+" ; k: "+str(k)+" ; valid loader size: "+str(len(validationLoader)))
                     #print("DBG , avgValSCores: "+str(avgValScores)+" ; Shape: "+str(avgValScores.shape))
                     #avgValScores = np.cumsum(avgValScores.cpu().numpy())
                     #predEntRate, _, _, _, _ = stats.linregress(

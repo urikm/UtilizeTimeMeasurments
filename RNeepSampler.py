@@ -114,9 +114,9 @@ class CartesianSeqSampler(CartesianSampler):
 
     def __next__(self):
         self.index = self.index + 1
-        if self.index >= self.trainIter:
-            raise StopIteration
         if self.training:
+            if self.index >= self.trainIter:
+                raise StopIteration
             #ens_idx = torch.randint(self.M, (self.batch_size,), device=self.device)
             traj_idx = torch.randint(
                 0,
