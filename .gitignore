@@ -2,3 +2,4 @@
 Results/
 .spyproject/
 __pycache__/
+*.filepart

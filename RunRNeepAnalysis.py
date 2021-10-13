@@ -52,7 +52,7 @@ if __name__ == '__main__':
     vSeqSize = np.array([3,16,32,64,128])
     # vSeqSize = np.array([128])
     maxSeqSize = np.max(vSeqSize)
-    batchSize = 4096
+    batchSize = 96
     nEpochs = 10
     nTrainIterPerEpoch = 5000
     
