@@ -38,12 +38,12 @@ def CreateTrajectory(nDim,nTimeStamps,initState,*args):
     ## For loop to create trajectory (according to Gillespie Algorithm)
     for iStep in range(nTimeStamps):
     # using the calculated PDF randomize jump
-        # nextState = np.random.choice(nDim,1,p=mP[:,currState].reshape(nDim))
-        # nextState = np.array(rd.choices(range(nDim),weights=mP[:,currState].reshape(nDim)))
+        nextState = np.random.choice(nDim,1,p=mP[:,currState].reshape(nDim))
+        nextState = np.array(rd.choices(range(nDim),weights=mP[:,currState].reshape(nDim)))
         ### from neep paper
-        mc = np.random.uniform(0.0, 1.0)
-        interval = np.cumsum(mP[:,currState])
-        nextState = np.sum(interval < mc)
+        # mc = np.random.uniform(0.0, 1.0)
+        # interval = np.cumsum(mP[:,currState])
+        # nextState = np.sum(interval < mc)
         ###
     # save jumping step    
         mTrajectory[iStep,0] = currState
