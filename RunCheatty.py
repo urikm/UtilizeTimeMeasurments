@@ -18,6 +18,7 @@ import os
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.PartialTrajCheatty as pt 
 import LearningModels.Neep as neep
+from RNeepSampler import CartesianSeqSampler as CSS
 
 import torch
 from torch.optim import Adam, SGD, Adagrad, RMSprop , Rprop
@@ -51,12 +52,11 @@ if __name__ == '__main__':
     dbFileName = 'InitRateMatAsGilis'
     logFile = 'log.txt'
 
-    vSeqSize = np.array([3,8,32,64,128])
-    #vSeqSize = np.array([128])
+    vSeqSize = np.array([3,16,32,64,128])
     maxSeqSize = np.max(vSeqSize)
     batchSize = 4096
-    vEpochs = 5*np.array([1,5,10,20,40]) # raising in order to keep same # of iterations for each seq size
-    #vEpochs = 5np.array([100])
+    nEpochs = 10
+    nTrainIterPerEpoch = 5000
 
     flagPlot = True
     nDim = 4 # dimension of the problem
@@ -121,7 +121,7 @@ if __name__ == '__main__':
             sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim)
             vKld[i] = sigmaDotKld
             mCgTrajValid,_ = pt.CreateCoarseGrainedTraj(nDim,nTimeStamps,mWx,vHiddenStates,timeRes)
-            sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim)
+            sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(mCgTrajValid,nCgDim)
             vKldValid[i] = sigmaDotKld 
             
         k = 0       
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     
                 # mValid = mCgTrajValid[:int(np.floor(mCgTrajValid.shape[0]/iSeqSize)*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
                 mValid = torch.from_numpy(mCgTrajValid[:,0]).long()
-                vValidL = np .kron(vKldValid[i]*T,np.ones(len(mValid)))
+                vValidL = np.kron(vKldValid[i]*T,np.ones(len(mValid)))
                 vValidL = torch.from_numpy(vValidL).type(torch.FloatTensor)
                 validDataSet = torch.utils.data.TensorDataset(mValid,vValidL)
                 validLoader =  torch.utils.data.DataLoader(validDataSet, batch_size=batchSize, shuffle=False)
@@ -175,12 +175,12 @@ if __name__ == '__main__':
             else:
                 model = neep.RNEEPT()
                 outFileadd ='T_'
-            if device == 'cuda:0':
-                model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
+#            if device == 'cuda:0':
+#                model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
             model.to(device)
             # defining the optimizer
             # optimizer = SGD(model.parameters(),lr=vLrate[k])
-            optimizer = Adam(model.parameters(),lr=2e-4,weight_decay=1e-4)
+            optimizer = Adam(model.parameters(),lr=1e-4,weight_decay=5e-5)
             trainRnn = neep.make_trainRnn(model,optimizer,iSeqSize,device)
             bestLoss = 1e3
             
@@ -199,12 +199,12 @@ if __name__ == '__main__':
 #            batchInd = batchInd[:-int(np.ceil(maxSeqSize/batchSize)),:,:] #Drop last batch due to exceeding index
 
             for epoch in range(int(nEpochs)):
-                validLoader =  torch.utils.data.DataLoader(validDataSet, num_workers=3, sampler = CSS(1,validDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=False), pin_memory=True)
-                trainLoader =  torch.utils.data.DataLoader(trainDataSet, num_workers=3, sampler = CSS(1,trainDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=True), pin_memory=True)
+                validLoader =  torch.utils.data.DataLoader(validDataSet, sampler = CSS(1,validDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=False), pin_memory=True)
+                trainLoader =  torch.utils.data.DataLoader(trainDataSet, sampler = CSS(1,trainDataSet.tensors[0].size()[0],iSeqSize,batchSize,nTrainIterPerEpoch,train=True), pin_memory=True)
                 tic = time.time()
                 bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)
                 toc = time.time()
-                print('Elapsed time of Epoch '+str(epoch+1)+' is: '+str(toc-tic)+" ; num of model params: "+str(model.module.count_parameters())+" ; KLD est: "+str(bestEpRate/T))
+                print('Elapsed time of Epoch '+str(epoch+1)+' is: '+str(toc-tic)+" ; KLD est: "+str(bestEpRate/T))
                 if bestLossEpoch < bestLoss:
                     mNeep[k,i] = bestEpRate/T
                     bestLoss = bestLossEpoch

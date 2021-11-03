@@ -28,7 +28,7 @@ def CreateTrajectory(nDim,nTimeStamps,initState,*args):
         mW = args[0]
     
     mP = (mW-np.diag(np.diagonal(mW)))/abs(np.diagonal(mW)) # calculate discrete PDF for states jumps
-    mTrajectory = np.zeros((nTimeStamps, 2),dtype=np.float32)
+    mTrajectory = np.zeros((nTimeStamps, 2))
 
     currState = initState[0]
     # memory for indices for each state

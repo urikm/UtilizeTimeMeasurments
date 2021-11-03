@@ -113,7 +113,6 @@ class CartesianSeqSampler(CartesianSampler):
         self.trj_idx = torch.cumsum(self.trj_idx, 0) - 1
 
     def __next__(self):
-        self.index = self.index + 1
         if self.training:
             if self.index >= self.trainIter:
                 raise StopIteration
@@ -124,6 +123,7 @@ class CartesianSeqSampler(CartesianSampler):
                 (self.batch_size,),
                 device=self.device,
             )
+            self.index += 1
             traj_idx = self.trj_idx + traj_idx
             return traj_idx.transpose(0,1)
         else:
