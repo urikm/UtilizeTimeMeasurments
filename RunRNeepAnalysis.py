@@ -74,9 +74,11 @@ if __name__ == '__main__':
     # Init vectors for plotting
     vGrid = np.concatenate((np.arange(-1.,xSt,1),np.arange(xSt,3.,1)))
     # This used for running with different grid, dont change the upper version - its the defualt
-    # vGrid = np.concatenate((np.arange(xSt-0.05,xSt-0.005,0.01),np.arange(xSt,xSt+0.05,0.01)))
+    vGrid = np.concatenate((np.arange(xSt-0.02,xSt-0.005,0.01),np.arange(xSt,xSt+0.02,0.01)))
 
-    vGrid = np.arange(-1.,0.,0.25)
+    #vGrid = np.arange(-1.,0.,0.25)
+    #vGrid = np.arange(0.,xSt,0.15)
+
     vInformed = np.zeros(np.size(vGrid))
     vPassive = np.zeros(np.size(vGrid))
     vKld =  np.zeros(np.size(vGrid))

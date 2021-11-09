@@ -1,8 +1,0 @@
-#!/bin/bash
-export CUDA_VISIBLE_DEVICES=1
-for i in 1
-do
-	mkdir -p "Results/Analysis2_$i"
-	python3 RunRNeepAnalysis.py --save-path "Results/Analysis2_$i" > "Results/Analysis2_$i/log.txt" &
-done
-echo "All the Non Cheatty runs are set and running"
