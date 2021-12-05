@@ -46,10 +46,10 @@ def MasterEqStep(mW,vP,timeJump):
 # %% Calculate Entropy Rate from Steady-State probabilities and rate matrix
 def EntropyRateCalculation(nDim,mW,vPi):
     entropyRate = 0 
-    for iRow in range(nDim):
+    for iRow in range(nDim-1):
         for iCol in range(iRow+1,nDim):
-            Jij,J_j2i,J_i2j = CalcSteadyStateCurrent(mW,vPi,iCol,iRow)
-            if np.abs(Jij) > 0:
+            Jij,J_j2i,J_i2j = CalcSteadyStateCurrent(mW,vPi,iRow,iCol)
+            if np.abs(J_j2i) != 0 and np.abs(J_i2j) != 0:
                 entropyRate += Jij*np.log(J_j2i/J_i2j)
     return entropyRate
 

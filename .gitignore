@@ -3,3 +3,5 @@ Results/
 .spyproject/
 __pycache__/
 *.filepart
+*.xml
+*.iml

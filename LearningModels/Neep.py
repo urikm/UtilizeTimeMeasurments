@@ -157,7 +157,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
         for x_batch, y_batch in trainLoader:
             model.train()
             
-            x_batch = x_batch.squeeze().to(device)
+            x_batch = x_batch.squeeze().long().to(device)
             y_batch = y_batch.squeeze().to(device)
             # prediction for training
             #print("DBG ; x_batch: "+str(x_batch)+" ; shape: "+str(x_batch.shape))
@@ -188,7 +188,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
             if (k >= 1000 and not(k % 1000)) or (k == len(trainLoader)):
                 with torch.no_grad():
                     for x_val, y_val in validationLoader:
-                        x_val = x_val.squeeze().to(device)
+                        x_val = x_val.squeeze().long().to(device)
                         y_val = y_val.squeeze().to(device)                    
                         model.eval()
                         entropy_val = model(x_val)
