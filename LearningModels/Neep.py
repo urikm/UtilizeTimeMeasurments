@@ -18,7 +18,7 @@ import torch
 
 from torch.nn import Linear, Conv2d, MaxPool2d, Module, LSTM, Embedding, GRU
 
-
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 # %% Define Models
 
 # %% RNEEP - no time data as input
@@ -59,7 +59,9 @@ class RNEEP(Module):
         #weight = next(self.parameters())
         #return weight.new_zeros(self.nlayers, bsz, self.nhid).detach()
         hidden = torch.zeros(self.nlayers, bsz, self.nhid)
-        return hidden.cuda()
+        if device != 'cpu':
+            hidden = hidden.cuda()
+        return hidden
 
     # Extract model size
     def count_parameters(self):

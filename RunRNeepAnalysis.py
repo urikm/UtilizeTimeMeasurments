@@ -38,9 +38,9 @@ def parse_args():
     Get training dataset and the model name.
     """
     parser = argparse.ArgumentParser(description="Hidden Markov EPR estimation using NEEP")
-    parser.add_argument('--lr', default=2e-4, type=float,
+    parser.add_argument('--lr', default=1e-4, type=float,
                         help='learning rate')
-    parser.add_argument('--wd', default=1e-4, type=float,
+    parser.add_argument('--wd', default=5e-5, type=float,
                         help='weight decay')
     parser.add_argument('--batch_size', '-b', default=4096, type=int,
                         help='Training batch size')
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     elif opt.ext_forces == 'zoomed':
         vGrid = np.arange(-1.,0.,0.25)
     elif opt.ext_forces == 'extended':
-        vGrid = np.arange(-2.,0.,0.25)
+        vGrid = np.arange(-2.,1.,0.25)
 
     vInformed = np.zeros(np.size(vGrid))
     vPassive = np.zeros(np.size(vGrid))
@@ -226,7 +226,7 @@ if __name__ == '__main__':
             bestLoss = 1e3
             
             # Define sampler - train and validation
-            for epoch in range(int(opt.epoches)):
+            for epoch in range(int(opt.epochs)):
                 validLoader =  torch.utils.data.DataLoader(validDataSet, sampler = CSS(1,validDataSet.tensors[0].size()[0],iSeqSize,opt.batch_size,nTrainIterPerEpoch,train=False), pin_memory=False)
                 trainLoader =  torch.utils.data.DataLoader(trainDataSet, sampler = CSS(1,trainDataSet.tensors[0].size()[0],iSeqSize,opt.batch_size,nTrainIterPerEpoch,train=True), pin_memory=False)
                 tic = time.time()
@@ -238,12 +238,13 @@ if __name__ == '__main__':
                     bestLoss = bestLossEpoch
                     # Save best model for specific external force
                     state = {
-                        'model': self.model.module.state_dict(),
+                        'model': model.module.state_dict(),
                         'test_epr': mNeep[k,i],
                         'test_loss': bestLoss,
                         'epoch': epoch,
                     }
-            k += 1   
+                    torch.save(state, plotDir+os.sep+'model_forceIdx'+str(idx)+'seqSize'+str(iSeqSize)+'.pt')
+            k += 1
          
 
         i += 1

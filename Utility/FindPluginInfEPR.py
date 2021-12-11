@@ -19,7 +19,7 @@ import PhysicalModels.PartialTrajectories as pt
 import PhysicalModels.ratchet as rt
 import PhysicalModels.UtilityTraj as ut
 # %% Create trajectories
-def CreateGilisTrajectory(nTimeStamps=5e5, x=0.):
+def CreateGilisTrajectory(nTimeStamps=5e6, x=0.):
     nTimeStamps = int(nTimeStamps)
     nDim = 4
     mW = np.array([[-11., 2., 0., 1.], [3., -52.2, 2., 35.], [0., 50., -77., 0.7], [8., 0.2, 75., -36.7]])
@@ -51,80 +51,60 @@ def CreateNEEPTrajectory(nTimeStamps=5e4, x=0., fullCg=False):
 
 
 # %% Estimate \hat{d}_m - plugin estimator with sequence of m
-def EstimatePluginM(mCgTrajectory, m):
-    mMemory, nUniqueSeq, nTotSeq = CountSequences(mCgTrajectory, m)
-    mProb = mMemory[:,-2:]/nTotSeq
-    kldEstm = 0
-
-    for iSeq in range(nUniqueSeq):
-        if mProb[iSeq,0] > mProb[iSeq,1]:
-            probF = mProb[iSeq,0]
-            probR = mProb[iSeq,1]
-        else:
-            probF = mProb[iSeq,1]
-            probR = mProb[iSeq,0]
-        if probF > 0 and probR > 0:
-            kldEstm += probF*np.log(probF/probR)
-    return kldEstm
-
-def CountSequences(vStatesTraj, m):
-    assert m >= 2, "Length of sequence must be greater or equal to 2! Otherwise it's not physical"
-    assert m <= 9, "Length of sequence need to be less than 10 in order to work with floats" # TODO: increase support by using double
-
-    #vStatesTraj = trainDataSet[:, 0]
-    #mMemory = np.zeros((3*2**int(m-1), 3))  # number of rows is as number of sequence options and columns are - <sequence in decimal base/2, repitions, rep's of reverse
-    mMemory = np.zeros((3 * 2 ** 9 * 10, 3)) # upper limit, most probably zeros but therer is no memory problem
-    nUniqueSeq = 0
+def EstimatePluginM(vStatesTraj, m):
+    # We will use the symmetry(anti-symmetry) of the KLD for our favor.
+    # The following algorithm uses this property of the target KLD.
     nEffLength = len(vStatesTraj) - m + 1#np.floor(len(vStatesTraj)/m)#
     vSeq2Dec = np.power(10, range(m))
-    # Iterate over all sequences in the trajectory
-    for iStep in range(nEffLength):#range(0,int(nEffLength*m),m):#
-        newFlag = True  # used to understand if a new sequence is observed
-        decSeq = np.dot(vSeq2Dec, vStatesTraj[iStep:(iStep+m)])
-        decSeqRev = np.dot(vSeq2Dec, np.flip(vStatesTraj[iStep:(iStep+m)]))
-        # Search if this sequence already observed and count it if needed
-        for i in range(nUniqueSeq):
-            if decSeq == mMemory[i, 0]:
-                mMemory[i, 1] += 1
-                newFlag = False
-                break
-            elif decSeqRev == mMemory[i, 0]:
-                mMemory[i, 2] += 1
-                newFlag = False
-                break
-        # Case the sequence not found in memory - add a new entry to the memory
-        if newFlag:
-            nUniqueSeq += 1
-            mMemory[nUniqueSeq-1, :] = np.array([decSeq, 1, 0])
 
-    return mMemory, nUniqueSeq, nEffLength
+    # Collect sequence statistics for one direction sequences
+    vIndicateSeq = np.correlate(vStatesTraj, vSeq2Dec) # this correlation equal to coding each sequence
+    vProbOfSeq1 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
+    vProbOfSeq1 = vProbOfSeq1[1]/nEffLength # these are the "true" probabilities for each sequence
+
+    # Same for other direction
+    vIndicateSeq = np.correlate(vStatesTraj, np.flip(vSeq2Dec)) # this correlation equal to coding each sequence
+    vProbOfSeq2 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
+    vProbOfSeq2= vProbOfSeq2[1]/nEffLength # used to calculate the probabilities log ratio of forward and backward trajectory
+
+    kldEstm = np.sum(np.multiply(vProbOfSeq1, np.log(vProbOfSeq1/vProbOfSeq2)))
+    return kldEstm
+
 
 # %% Estimate \hat{d}_\infty - plugin estimator in infinity
-def EstimatePluginInf(mCgTrajectory, vMgrid):
+def EstimatePluginInf(mCgTrajectory):
     # By fitting plugin estimator of order m we find the infinity plugin
+    vMgrid = np.linspace(2,9,9-2+1,dtype=np.intc)
+    vGrid2Fit = np.array([2, 3, 5, 7, 9])
     vKldM = np.ones(vMgrid.shape)
+    vEprEst = np.ones(vGrid2Fit.shape)
     # Collect data for fitting
     for m, iM in enumerate(vMgrid):
-        print('Estimating KLD for seq size: '+ str(iM))
+        print('Estimating KLD for seq size: ' + str(iM))
         vKldM[m] = EstimatePluginM(mCgTrajectory, iM)
     print('Completed gather fitting points. Start fit...')
     # Fit the data
-    popt, _ = curve_fit(FitFunc, vMgrid, vKldM)
+
+    vEprEst[0] = vKldM[0]/2
+    vEprEst[1:] = vKldM[1::2] - vKldM[::2]
+    popt, _ = curve_fit(FitFunc, vGrid2Fit, vEprEst)
     kldInf = popt[0]
 
     return kldInf
 
 
 def FitFunc(x, b, c, g):
-    return b - c*np.divide(np.log(x), x**g)
+    return b - c*(np.log(x)/x**g)
 
+def SemiAnalyticalKLD(vTraj, mW):
+    return True
 
 if __name__ == '__main__':
-    nTimeStamps=10e5
+    nTimeStamps=1e6
     x = 1.
-    #trainDataSet, nCgDim = CreateGilisTrajectory(nTimeStamps=nTimeStamps, x=x)
-    #trainDataSet = trainDataSet[:, 0]
+    # trainDataSet, nCgDim = CreateGilisTrajectory(nTimeStamps=nTimeStamps, x=x)
+    # mCgTrajectory = trainDataSet[:, 0]
     mCgTrajectory = CreateNEEPTrajectory(nTimeStamps=nTimeStamps, x=x, fullCg=False)
-    vMgrid = np.array([2,3,5,7,9])
-    kldInf = EstimatePluginInf(mCgTrajectory, vMgrid)
+    # vMgrid = np.array([2,3,5,7,9])
+    kldInf = EstimatePluginInf(mCgTrajectory)
     eprNeepAnalytic = rt.ep_per_step(x)

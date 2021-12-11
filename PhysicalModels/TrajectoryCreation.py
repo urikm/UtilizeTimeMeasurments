@@ -24,8 +24,13 @@ def CreateTrajectory(nDim,nTimeStamps,initState,*args):
     if len(args)==0:
         # Init adjacency matrix
         mW = GenRateMat(nDim)
+        mcFlag = True
     elif len(args)==1:
         mW = args[0]
+        mcFlag = True
+    elif len(args)==2:
+        mW = args[0]
+        mcFlag = args[1]
     
     mP = (mW-np.diag(np.diagonal(mW)))/abs(np.diagonal(mW)) # calculate discrete PDF for states jumps
     mTrajectory = np.zeros((nTimeStamps, 2))
@@ -37,14 +42,16 @@ def CreateTrajectory(nDim,nTimeStamps,initState,*args):
     
     ## For loop to create trajectory (according to Gillespie Algorithm)
     for iStep in range(nTimeStamps):
-    # using the calculated PDF randomize jump
-        nextState = np.random.choice(nDim,1,p=mP[:,currState].reshape(nDim))
-        nextState = np.array(rd.choices(range(nDim),weights=mP[:,currState].reshape(nDim)))
-        ### from neep paper
-        # mc = np.random.uniform(0.0, 1.0)
-        # interval = np.cumsum(mP[:,currState])
-        # nextState = np.sum(interval < mc)
-        ###
+        #Using the calculated PDF randomize jump
+        if not mcFlag:
+            nextState = np.random.choice(nDim,1,p=mP[:,currState].reshape(nDim))
+            #nextState = np.array(rd.choices(range(nDim),weights=mP[:,currState].reshape(nDim)))
+            ### from neep paper
+        else:
+            mc = np.random.uniform(0.0, 1.0)
+            interval = np.cumsum(mP[:,currState])
+            nextState = np.sum(interval < mc)
+            ###
     # save jumping step    
         mTrajectory[iStep,0] = currState
         mMem[currState,int(vCount[currState])] = iStep
