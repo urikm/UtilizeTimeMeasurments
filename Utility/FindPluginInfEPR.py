@@ -56,26 +56,43 @@ def EstimatePluginM(vStatesTraj, m):
     # The following algorithm uses this property of the target KLD.
     nEffLength = len(vStatesTraj) - m + 1#np.floor(len(vStatesTraj)/m)#
     vSeq2Dec = np.power(10, range(m))
-
+    kldEstm = 0
+    endFlag = False
+    countF = 0
+    countB = 0
+    eps = 1e-9
     # Collect sequence statistics for one direction sequences
     vIndicateSeq = np.correlate(vStatesTraj, vSeq2Dec) # this correlation equal to coding each sequence
-    vProbOfSeq1 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
-    vProbOfSeq1 = vProbOfSeq1[1]/nEffLength # these are the "true" probabilities for each sequence
+    vSeqs1, vProbOfSeq1 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
+    vProbOfSeq1 = vProbOfSeq1/nEffLength # these are the "true" probabilities for each sequence
 
     # Same for other direction
     vIndicateSeq = np.correlate(vStatesTraj, np.flip(vSeq2Dec)) # this correlation equal to coding each sequence
-    vProbOfSeq2 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
-    vProbOfSeq2= vProbOfSeq2[1]/nEffLength # used to calculate the probabilities log ratio of forward and backward trajectory
+    vSeqs2, vProbOfSeq2 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
+    vProbOfSeq2= vProbOfSeq2/nEffLength # used to calculate the probabilities log ratio of forward and backward trajectory
 
-    kldEstm = np.sum(np.multiply(vProbOfSeq1, np.log(vProbOfSeq1/vProbOfSeq2)))
+    while not endFlag:
+        if vSeqs1[countF] == vSeqs2[countB]:
+            kldEstm += vProbOfSeq1[countF]*np.log(vProbOfSeq1[countF]/vProbOfSeq2[countB])
+            countF += 1
+            countB += 1
+        elif vSeqs1[countF] > vSeqs2[countB]:
+            countB += 1
+        else:
+            countF += 1
+        if countF >= len(vProbOfSeq1) or countB >= len(vProbOfSeq1):
+            endFlag = True
+    ## This works only if all the possible sequences are observed
+    # kldEstm = np.sum(np.multiply(vProbOfSeq1, np.log(vProbOfSeq1/vProbOfSeq2)))
     return kldEstm
 
 
 # %% Estimate \hat{d}_\infty - plugin estimator in infinity
 def EstimatePluginInf(mCgTrajectory):
     # By fitting plugin estimator of order m we find the infinity plugin
-    vMgrid = np.linspace(2,9,9-2+1,dtype=np.intc)
-    vGrid2Fit = np.array([2, 3, 5, 7, 9])
+    maxSeq = 7
+    vMgrid = np.linspace(2, maxSeq, maxSeq-2+1, dtype=np.intc)
+    vGrid2Fit = np.concatenate(([2], range(3, maxSeq+1, 2)))
     vKldM = np.ones(vMgrid.shape)
     vEprEst = np.ones(vGrid2Fit.shape)
     # Collect data for fitting
@@ -85,7 +102,7 @@ def EstimatePluginInf(mCgTrajectory):
     print('Completed gather fitting points. Start fit...')
     # Fit the data
 
-    vEprEst[0] = vKldM[0]/2
+    vEprEst[0] = vKldM[0]
     vEprEst[1:] = vKldM[1::2] - vKldM[::2]
     popt, _ = curve_fit(FitFunc, vGrid2Fit, vEprEst)
     kldInf = popt[0]
@@ -100,11 +117,11 @@ def SemiAnalyticalKLD(vTraj, mW):
     return True
 
 if __name__ == '__main__':
-    nTimeStamps=1e6
-    x = 1.
+    nTimeStamps=1e7
+    x = 2.
     # trainDataSet, nCgDim = CreateGilisTrajectory(nTimeStamps=nTimeStamps, x=x)
     # mCgTrajectory = trainDataSet[:, 0]
-    mCgTrajectory = CreateNEEPTrajectory(nTimeStamps=nTimeStamps, x=x, fullCg=False)
+    mCgTrajectory = CreateNEEPTrajectory(nTimeStamps=nTimeStamps, x=x, fullCg=True)
     # vMgrid = np.array([2,3,5,7,9])
     kldInf = EstimatePluginInf(mCgTrajectory)
     eprNeepAnalytic = rt.ep_per_step(x)

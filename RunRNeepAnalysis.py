@@ -18,7 +18,7 @@ import os
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.PartialTrajectories as pt 
 import LearningModels.Neep as neep
-from RNeepSampler import CartesianSeqSampler as CSS
+from Dataset import CGTrajectoryDataSet
 
 import torch
 import torch.utils.data as dat
@@ -81,9 +81,7 @@ if __name__ == '__main__':
 
     vSeqSize = np.array([int(item) for item in opt.seq_list.split(',')])
     maxSeqSize = np.max(vSeqSize)
-    nTrainIterPerEpoch = 5000
-    
-    
+
     nDim = 4 # dimension of the problem
     nTimeStamps = int(maxSeqSize*opt.batch_size*1e2) # how much time stamps will be saved
     vHiddenStates = np.array([2,3]) # states 3 and 4 for 4-D state sytem
@@ -133,81 +131,21 @@ if __name__ == '__main__':
         vInformed[i] = pt.CalcInformedPartialEntropyProdRate(mWx,vPiX,vPiSt)
         # The full entropy rate
         vFull[i] = pt.EntropyRateCalculation(nDim,mWx,vPiX)
+
+        # Create Datasets
+        trainDataSet = CGTrajectoryDataSet(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps, extForce=x)
+        validDataSet = CGTrajectoryDataSet(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps,
+                                           extForce=x, mode='valid',)
         # KLD bound
-        if loadDbFlag:
-            # TODO : support for using Time Data??
-            # Choose the wanted trajectory according to x
-            with open(dbPath+os.sep+'MappingVector'+'.pickle', 'rb') as handle:
-                vX = pickle.load(handle)
-                wantedIdx = (np.abs(vX - x)).argmin()
-            with open(dbPath+os.sep+dbFileName+'_'+str(wantedIdx)+'.pickle', 'rb') as handle:
-                dDataTraj = pickle.load(handle)
+        vKld[i] = trainDataSet.targetKLD
+        print(trainDataSet.targetKLD)
+        print(validDataSet.targetKLD)
 
-            trainDataSet = dDataTraj.pop('vStates')
-            trainDataSet = np.array([trainDataSet, dDataTraj.pop('vTimeStamps')]).T
-            vKld[i] = dDataTraj['kldBound']
-            validDataSet = trainDataSet
-            vKldValid[i] = vKld[i]
-            T = dDataTraj['timeFactor']
-        else:
-            trainDataSet, nCgDim = pt.CreateCoarseGrainedTraj(nDim, nTimeStamps, mWx, vHiddenStates, timeRes)
-            sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(trainDataSet, nCgDim)
-            vKld[i] = sigmaDotKld
-            validDataSet, _ = pt.CreateCoarseGrainedTraj(nDim, nTimeStamps, mWx, vHiddenStates, timeRes)
-            sigmaDotKld,T,sigmaDotAff,sigmaWtd,dd1H2,dd2H1 = pt.CalcKLDPartialEntropyProdRate(validDataSet, nCgDim)
-            vKldValid[i] = sigmaDotKld 
-            
         k = 0
-        if rneeptFlag == False:
-            # ==============================================
-            # # NEEP entropy rate
-            trainDataSet = torch.from_numpy(trainDataSet[:, 0])
-            vTrainL = np.kron(vKld[i] * T, np.ones(len(trainDataSet)))
-            vTrainL = torch.from_numpy(vTrainL).type(torch.FloatTensor)
-            trainDataSet = torch.utils.data.TensorDataset(trainDataSet, vTrainL)
-            # trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=opt.batch_size, shuffle=True)
-
-            # mValid = validDataSet[:int(np.floor(validDataSet.shape[0]/iSeqSize)*iSeqSize),0].reshape(iSeqSize,-1,order='F').transpose()
-            validDataSet = torch.from_numpy(validDataSet[:, 0])
-            vValidL = np.kron(vKldValid[i] * T, np.ones(len(validDataSet)))
-            vValidL = torch.from_numpy(vValidL).type(torch.FloatTensor)
-            validDataSet = torch.utils.data.TensorDataset(validDataSet, vValidL)
-            validLoader = torch.utils.data.DataLoader(validDataSet, batch_size=opt.batch_size, shuffle=False)
-        else: # TODO : update this section
-            # ==============================================
-            # NEEP entropy rate using time
-            # Obsolete Naive sampler - TODO : implement more "standard" sampler
-            tmpStates = trainDataSet[:int(np.floor(trainDataSet.shape[0] / iSeqSize) * iSeqSize), 0].reshape(iSeqSize,
-                                                                                                             -1,
-                                                                                                             order='F').transpose()
-            tmpWtd = trainDataSet[:int(np.floor(trainDataSet.shape[0] / iSeqSize) * iSeqSize), 1].reshape(iSeqSize,
-                                                                                                          -1,
-                                                                                                          order='F').transpose()
-
-            trainDataSet = np.concatenate((np.expand_dims(tmpStates, 2), np.expand_dims(tmpWtd, 2)), axis=2)
-            trainDataSet = torch.from_numpy(trainDataSet).float()
-            vTrainL = np.kron(vKld[i] * T, np.ones(int(np.floor(trainDataSet.shape[0] / iSeqSize))))
-            vTrainL = torch.from_numpy(vTrainL).float()
-            trainDataSet = torch.utils.data.TensorDataset(trainDataSet, vTrainL)
-            # trainLoader =  torch.utils.data.DataLoader(trainDataSet, batch_size=opt.batch_size, shuffle=True)
-
-            tmpSValid = validDataSet[:int(np.floor(validDataSet.shape[0] / iSeqSize) * iSeqSize), 0].reshape(iSeqSize,
-                                                                                                             -1,
-                                                                                                             order='F').transpose()
-            tmpWValid = validDataSet[:int(np.floor(validDataSet.shape[0] / iSeqSize) * iSeqSize), 1].reshape(iSeqSize,
-                                                                                                             -1,
-                                                                                                             order='F').transpose()
-
-            validDataSet = np.concatenate((np.expand_dims(tmpSValid, 2), np.expand_dims(tmpWValid, 2)), axis=2)
-            validDataSet = torch.from_numpy(validDataSet).float()
-            vValidL = np.kron(vKldValid[i] * T, np.ones(int(np.floor(validDataSet.shape[0] / iSeqSize))))
-            vValidL = torch.from_numpy(vValidL).float()
-            validDataSet = torch.utils.data.TensorDataset(validDataSet, vValidL)
-            validLoader = torch.utils.data.DataLoader(validDataSet, batch_size=opt.batch_size, shuffle=False)
-        # ==============================================
-
         for iSeqSize in vSeqSize:
             print('Calculating estimator for x = '+str(x)+' ; Sequence size: '+str(iSeqSize)+" ; KLD: "+str(vKldValid[i]))
+            validLoader = torch.utils.data.DataLoader(validDataSet)
+            trainLoader = torch.utils.data.DataLoader(trainDataSet, shuffle=True)
 
             # define RNN model
             if rneeptFlag == False:
@@ -216,19 +154,17 @@ if __name__ == '__main__':
             else:
                 model = neep.RNEEPT()
                 outFileadd ='T_'
-            if device == 'cuda:0':
-                model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
+            # if device == 'cuda:0':
+            #     model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
             model.to(device)
             # defining the optimizer
             # optimizer = SGD(model.parameters(),lr=vLrate[k])
-            optimizer = Adam(model.parameters(),lr=opt.lr,weight_decay=opt.wd)
-            trainRnn = neep.make_trainRnn(model,optimizer,iSeqSize,device)
+            optimizer = Adam(model.parameters(), lr=opt.lr, weight_decay=opt.wd)
+            trainRnn = neep.make_trainRnn(model, optimizer, iSeqSize, device)
             bestLoss = 1e3
             
             # Define sampler - train and validation
             for epoch in range(int(opt.epochs)):
-                validLoader =  torch.utils.data.DataLoader(validDataSet, sampler = CSS(1,validDataSet.tensors[0].size()[0],iSeqSize,opt.batch_size,nTrainIterPerEpoch,train=False), pin_memory=False)
-                trainLoader =  torch.utils.data.DataLoader(trainDataSet, sampler = CSS(1,trainDataSet.tensors[0].size()[0],iSeqSize,opt.batch_size,nTrainIterPerEpoch,train=True), pin_memory=False)
                 tic = time.time()
                 bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)
                 toc = time.time()
@@ -244,9 +180,12 @@ if __name__ == '__main__':
                         'epoch': epoch,
                     }
                     torch.save(state, plotDir+os.sep+'model_forceIdx'+str(idx)+'seqSize'+str(iSeqSize)+'.pt')
-            k += 1
-         
 
+            k += 1
+            # Modify the batches to represent he next seqLen input
+            if k < len(vSeqSize):
+                trainDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
+                trainDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
         i += 1
         
 # %% Save results

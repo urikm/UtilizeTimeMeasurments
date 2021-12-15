@@ -7,3 +7,12 @@ def BaseSystem():
     timeRes = 0.001
 
     return mW, nDim, vHiddenStates, timeRes
+
+def DataSetCreationParams():
+    samplePrefix = 'BatchedSample_'
+    fileSuffix = '.pt'
+    trainIterInEpoch = 5000
+    dsDescriptorName = 'DataSetDescriptor'
+    trajFileName = 'CoarseGrainedTrajectory'
+
+    return samplePrefix, fileSuffix, trainIterInEpoch, dsDescriptorName, trajFileName
