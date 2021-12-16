@@ -19,6 +19,7 @@ from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.PartialTrajectories as pt 
 import LearningModels.Neep as neep
 from Dataset import CGTrajectoryDataSet
+from Utility.Params import ExtForcesGrid
 
 import torch
 import torch.utils.data as dat
@@ -51,7 +52,7 @@ def parse_args():
     parser.add_argument('--ext_forces', '-f', choices=('coarse', 'nearSt', 'zoomed', 'extended'), default='coarse',
                         help='Define grid of external forces')
     parser.add_argument("--save-path",
-                        default="",type=str,
+                        default=".",type=str,
                         metavar="PATH",help="path to save result (default: none)")
 
     return parser.parse_args()
@@ -96,24 +97,17 @@ if __name__ == '__main__':
 
     # Calculate Stalling data
     vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW)    
-    # Init vectors for plotting
-    vGrid = np.concatenate((np.arange(-1.,xSt,1),np.arange(xSt,3.,1)))
-    # This used for running with different grid, dont change the upper version - its the defualt
-    if opt.ext_forces == 'coarse':
-        vGrid = np.concatenate((np.arange(-1., xSt, 1), np.arange(xSt, 3., 1)))
-    elif opt.ext_forces == 'nearSt':
-        vGrid = np.concatenate((np.arange(xSt-0.02,xSt-0.005,0.01),np.arange(xSt,xSt+0.02,0.01)))
-    elif opt.ext_forces == 'zoomed':
-        vGrid = np.arange(-1.,0.,0.25)
-    elif opt.ext_forces == 'extended':
-        vGrid = np.arange(-2.,1.,0.25)
 
+    # Fetch external forces grid
+    vGrid, _ = ExtForcesGrid(opt.ext_forces)
+
+    # Init vectors for plotting
     vInformed = np.zeros(np.size(vGrid))
     vPassive = np.zeros(np.size(vGrid))
-    vKld =  np.zeros(np.size(vGrid))
-    vKldValid =  np.zeros(np.size(vGrid))
+    vKld = np.zeros(np.size(vGrid))
+    vKldValid = np.zeros(np.size(vGrid))
     vFull = np.zeros(np.size(vGrid))
-    mNeep = np.zeros([np.size(vSeqSize),np.size(vGrid)])
+    mNeep = np.zeros([np.size(vSeqSize), np.size(vGrid)])
     
 
     print("Used device is:"+device)
@@ -137,9 +131,8 @@ if __name__ == '__main__':
         validDataSet = CGTrajectoryDataSet(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps,
                                            extForce=x, mode='valid',)
         # KLD bound
-        vKld[i] = trainDataSet.targetKLD
-        print(trainDataSet.targetKLD)
-        print(validDataSet.targetKLD)
+        vKldValid[i] = validDataSet.targetKLD
+        T = validDataSet.timeFactor
 
         k = 0
         for iSeqSize in vSeqSize:
@@ -158,7 +151,7 @@ if __name__ == '__main__':
             #     model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
             model.to(device)
             # defining the optimizer
-            # optimizer = SGD(model.parameters(),lr=vLrate[k])
+            # optimizeurikr = SGD(model.parameters(),lr=vLrate[k])
             optimizer = Adam(model.parameters(), lr=opt.lr, weight_decay=opt.wd)
             trainRnn = neep.make_trainRnn(model, optimizer, iSeqSize, device)
             bestLoss = 1e3
@@ -174,7 +167,7 @@ if __name__ == '__main__':
                     bestLoss = bestLossEpoch
                     # Save best model for specific external force
                     state = {
-                        'model': model.module.state_dict(),
+                        'model': model.state_dict(),
                         'test_epr': mNeep[k,i],
                         'test_loss': bestLoss,
                         'epoch': epoch,
@@ -185,7 +178,7 @@ if __name__ == '__main__':
             # Modify the batches to represent he next seqLen input
             if k < len(vSeqSize):
                 trainDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
-                trainDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
+                validDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
         i += 1
         
 # %% Save results
@@ -195,7 +188,7 @@ if __name__ == '__main__':
         with open(plotDir+os.sep+'vPassive_x_'+outFileadd+str(i-1)+'.pickle', 'wb') as handle:
             pickle.dump(vPassive, handle)
         with open(plotDir+os.sep+'vKld_x_'+outFileadd+str(i-1)+'.pickle', 'wb') as handle:
-            pickle.dump(vKld, handle)    
+            pickle.dump(vKldValid, handle)
         with open(plotDir+os.sep+'mNeep_x_'+outFileadd+str(i-1)+'.pickle', 'wb') as handle:
             pickle.dump(mNeep, handle)            
         

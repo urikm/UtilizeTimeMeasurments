@@ -67,7 +67,9 @@ class CGTrajectoryDataSet(Dataset):
         else:
             # Read data set description
             # TODO : make this part more scalable
-            dDataSet = torch.load(self.DataSetDir + os.sep + 'DataSetInfo.pt')
+            _, fileSuffix, _, dsDescriptorName, _ = DataSetCreationParams()
+
+            dDataSet = torch.load(self.DataSetDir + os.sep + dsDescriptorName + fileSuffix)
             self.seqLen = dDataSet['seqLen']
             self.batchSize = dDataSet['batchSize']
             self.isBaseSystem = dDataSet['isBaseSystem']
@@ -75,6 +77,7 @@ class CGTrajectoryDataSet(Dataset):
             self.targetEPR = dDataSet['targetEPR']
             self.targetKLD = dDataSet['targetKLD']
             self.nBatchedSamples = dDataSet['nBatchedSamples']
+            self.timeFactor = dDataSet['timeFactor']
 
     def __len__(self):
         return self.nBatchedSamples
@@ -100,9 +103,8 @@ class CGTrajectoryDataSet(Dataset):
 
         # Dataset descriptor
         dTrajTemplate = {'seqLen': self.seqLen, 'batchSize': self.batchSize, 'nBatchedSamples': -1,
-                         'extForce': self.extForce,
-                         'targetEPR': self.targetEPR, 'targetKLD': self.targetKLD,
-                         'isBaseSystem': self.isBaseSystem}  # the structure in which the trajectory will be saves per file
+                         'extForce': self.extForce, 'targetEPR': self.targetEPR, 'targetKLD': self.targetKLD,
+                         'timeFactor':-1, 'isBaseSystem': self.isBaseSystem}  # the structure in which the trajectory will be saves per file
 
         try:
             os.makedirs(saveDir)
@@ -136,10 +138,15 @@ class CGTrajectoryDataSet(Dataset):
         # Save dataset descriptor
         dTrajTemplate['targetKLD'] = kldEstimator
         dTrajTemplate['nBatchedSamples'] = len(sampler)
+        dTrajTemplate['timeFactor'] = T
         torch.save(dTrajTemplate, saveDir + os.sep + dsDescriptorName + fileSuffix)
 
         # Save The whole coarse grained trajectory for future modification of the samples
         torch.save(dataSet, saveDir + os.sep + trajFileName + fileSuffix)
+
+        # Clear cache
+        del dataLoader
+        del dataSet
 
         return kldEstimator, len(sampler), T
 
@@ -180,12 +187,18 @@ class CGTrajectoryDataSet(Dataset):
             torch.save(x_batch, self.DataSetDir + os.sep + samplePrefix + str(iIter) + fileSuffix)
         print("Dataset Modified!")
 
+        self.nBatchedSamples = iIter + 1
+
         # Update Dataset descriptor
         dTraj = torch.load(self.DataSetDir + os.sep + dsDescriptorName + fileSuffix)
         dTraj['seqLen'] = self.seqLen
         dTraj['batchSize'] = self.batchSize
         dTraj['nBatchedSamples'] = self.nBatchedSamples
         torch.save(dTraj, self.DataSetDir + os.sep + dsDescriptorName + fileSuffix)
+
+
+
+        return True
 
 ##########################################################
 # %% Calculate dual rate matrix - OBSOLETE FOR NOW
