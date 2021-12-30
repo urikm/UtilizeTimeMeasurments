@@ -39,13 +39,13 @@ def parse_args():
     Get training dataset and the model name.
     """
     parser = argparse.ArgumentParser(description="Hidden Markov EPR estimation using NEEP")
-    parser.add_argument('--lr', default=2e-4, type=float,
+    parser.add_argument('--lr', default=1e-4, type=float,
                         help='learning rate')
     parser.add_argument('--wd', default=5e-5, type=float,
                         help='weight decay')
-    parser.add_argument('--batch_size', '-b', default=128, type=int,
+    parser.add_argument('--batch_size', '-b', default=4096, type=int,
                         help='Training batch size')
-    parser.add_argument('--epochs', '-e', default=5, type=int,
+    parser.add_argument('--epochs', '-e', default=10, type=int,
                         help='Number of epochs to run')
     parser.add_argument('--seq_list', '-l', default='3,16,32,64,128', type=str,
                         help='Input sequence size to check')
