@@ -19,22 +19,32 @@ def DataSetCreationParams():
 
 def ExtForcesGrid(chooseGrid, interpRes=5e-3):
     xSt = 0.6700199322178189  # Calculated using Master Equation Solver
-    if chooseGrid == 'coarse':
+    if chooseGrid == 'full':
+        vGrid = np.concatenate((np.arange(-2., xSt, 0.3), np.arange(xSt, 3., 0.3)))
+        vGridInterp = np.concatenate((np.arange(-2., xSt, interpRes), np.arange(xSt, 3., interpRes)))
+        subFolder = 'AnalysisFull_'
+    elif chooseGrid == 'coarse':
         vGrid = np.concatenate((np.arange(-1., xSt, 1), np.arange(xSt, 3., 1)))
         vGridInterp = np.concatenate((np.arange(-1., xSt, interpRes), np.arange(xSt, 3., interpRes)))
+        subFolder = 'Analysis_'
     elif chooseGrid == 'aroundSt':
-        vGrid = np.concatenate((np.arange(xSt-0.02,xSt-0.005,0.01),np.arange(xSt,xSt+0.02,0.01)))
-        vGridInterp = np.concatenate((np.arange(xSt-0.02, xSt-0.005, interpRes), np.arange(xSt, xSt+0.02, interpRes)))
+        vGrid = np.concatenate((np.arange(xSt-0.02,xSt-1e-8,0.01),np.arange(xSt,xSt+0.02,0.01)))
+        vGridInterp = np.concatenate((np.arange(xSt-0.02, xSt-1e-8, interpRes), np.arange(xSt, xSt+0.02, interpRes)))
+        subFolder = 'AnalysisSt_'
     elif chooseGrid == 'nearSt':
         vGrid = np.arange(0, xSt,0.15)
         vGridInterp = np.arange(0, xSt, interpRes)
+        subFolder = 'AnalysisNearSt_'
+        subFolder = 'AnalysisSt_'
     elif chooseGrid == 'zoomed':
         vGrid = np.arange(-1., 0., 0.25)
         vGridInterp = np.arange(-1., 0., interpRes)
+        subFolder = 'AnalysisZoomed_'
     elif chooseGrid == 'extended':
         vGrid = np.arange(-2., 1., 0.25)
         vGridInterp = np.arange(-2., 1., interpRes)
+        subFolder = 'AnalysisExt_'
     else:
         raise Exception("Wrong grid chosen!")
 
-    return vGrid, vGridInterp
+    return vGrid, vGridInterp, subFolder

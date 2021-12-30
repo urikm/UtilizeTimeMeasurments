@@ -19,7 +19,7 @@ from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.PartialTrajectories as pt 
 import LearningModels.Neep as neep
 from Dataset import CGTrajectoryDataSet
-from Utility.Params import ExtForcesGrid
+from Utility.Params import BaseSystem, ExtForcesGrid
 
 import torch
 import torch.utils.data as dat
@@ -39,22 +39,25 @@ def parse_args():
     Get training dataset and the model name.
     """
     parser = argparse.ArgumentParser(description="Hidden Markov EPR estimation using NEEP")
-    parser.add_argument('--lr', default=1e-4, type=float,
+    parser.add_argument('--lr', default=2e-4, type=float,
                         help='learning rate')
     parser.add_argument('--wd', default=5e-5, type=float,
                         help='weight decay')
-    parser.add_argument('--batch_size', '-b', default=4096, type=int,
+    parser.add_argument('--batch_size', '-b', default=128, type=int,
                         help='Training batch size')
-    parser.add_argument('--epochs', '-e', default=10, type=int,
+    parser.add_argument('--epochs', '-e', default=5, type=int,
                         help='Number of epochs to run')
     parser.add_argument('--seq_list', '-l', default='3,16,32,64,128', type=str,
                         help='Input sequence size to check')
-    parser.add_argument('--ext_forces', '-f', choices=('coarse', 'nearSt', 'zoomed', 'extended'), default='coarse',
+    parser.add_argument('--ext_forces', '-f', choices=('coarse', 'full', 'nearSt', 'nearSt', 'zoomed', 'extended'), default='coarse',
                         help='Define grid of external forces')
     parser.add_argument("--save-path",
                         default=".",type=str,
                         metavar="PATH",help="path to save result (default: none)")
-
+    parser.add_argument("--dump-ds",
+                        default="StoredDataSets",type=str,
+                        metavar="PATH",help="path to dump datset (default: 'StoredDataSets')")
+    parser.add_argument("--semiCG", action="store_true",help="Perform semi coarse grain")
     return parser.parse_args()
 
 
@@ -73,33 +76,19 @@ if __name__ == '__main__':
         os.mkdir(plotDir)
     except:
         pass
-    
-    # TODO : need to make rewrite it if we want use pre-built DB
-    dbName = 'RneepDbCoarse'
-    dbPath = 'StoredDataSets'+os.sep+dbName
-    dbFileName = 'InitRateMatAsGilis'
-    logFile = 'log.txt'
 
     vSeqSize = np.array([int(item) for item in opt.seq_list.split(',')])
     maxSeqSize = np.max(vSeqSize)
 
-    nDim = 4 # dimension of the problem
-    nTimeStamps = int(maxSeqSize*opt.batch_size*1e2) # how much time stamps will be saved
-    vHiddenStates = np.array([2,3]) # states 3 and 4 for 4-D state sytem
-    
     ## Define base dynamics
-    if 0:
-        mW = pt.GenRateMat(nDim) # transition matrix
-        timeRes = 1
-    else:
-        mW = np.array([[-11.,2.,0.,1.],[3.,-52.2,2.,35.],[0.,50.,-77.,0.7],[8.,0.2,75.,-36.7]])
-        timeRes = 0.001
+    mW, nDim, vHiddenStates, timeRes = BaseSystem()
+    nTimeStamps = int(maxSeqSize * opt.batch_size * 1e2) # how many time stamps will be saved
 
     # Calculate Stalling data
     vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW)    
 
     # Fetch external forces grid
-    vGrid, _ = ExtForcesGrid(opt.ext_forces)
+    vGrid, _, _ = ExtForcesGrid(opt.ext_forces)
 
     # Init vectors for plotting
     vInformed = np.zeros(np.size(vGrid))
@@ -127,9 +116,10 @@ if __name__ == '__main__':
         vFull[i] = pt.EntropyRateCalculation(nDim,mWx,vPiX)
 
         # Create Datasets
-        trainDataSet = CGTrajectoryDataSet(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps, extForce=x)
+        trainDataSet = CGTrajectoryDataSet(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps,
+                                           extForce=x, rootDir=opt.dump_ds, semiCG=opt.semiCG)
         validDataSet = CGTrajectoryDataSet(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps,
-                                           extForce=x, mode='valid',)
+                                           extForce=x, mode='valid', rootDir=opt.dump_ds, semiCG=opt.semiCG)
         # KLD bound
         vKldValid[i] = validDataSet.targetKLD
         T = validDataSet.timeFactor

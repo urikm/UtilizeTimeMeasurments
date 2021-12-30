@@ -115,11 +115,14 @@ def CalcW4DrivingForce(mW,x):
 
 
 # %% Coarse Grain trajectory
-def CoarseGrainTrajectory(mTrajectory,nFullDim,vHiddenStates):
+def CoarseGrainTrajectory(mTrajectory,nFullDim,vHiddenStates,semiCG=False):
     mCgTrajectory = np.copy(mTrajectory)
     nJumps = np.size(mCgTrajectory,0)
     iHidden = nFullDim-np.size(vHiddenStates,0)
-    hState = -2 #iHidden #  define as intermediate state every hidden state that is not last in it's sequence
+    if semiCG:
+        hState = iHidden
+    else:
+        hState = -2 #iHidden #  define as intermediate state every hidden state that is not last in it's sequence
     
     for iJump in range(nJumps):
         
@@ -132,9 +135,12 @@ def CoarseGrainTrajectory(mTrajectory,nFullDim,vHiddenStates):
                          mCgTrajectory[iJump,0] = iHidden                                              
             else:
                 mCgTrajectory[iJump,0] = iHidden
-            
-    # Now remove '-2' states
-    mCgTrajectory = mCgTrajectory[(mCgTrajectory[:,0]!=hState),:]  # TODO: uncomment for right CG   
+
+    if semiCG:
+        pass # Dont do nothing in semi CG
+    else:
+        mCgTrajectory = mCgTrajectory[(mCgTrajectory[:,0]!=hState),:]  # remove '-2' states in Full CG
+
     nCgDim = iHidden+1
     return mCgTrajectory,nCgDim
 
@@ -230,14 +236,18 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory,nDim):
     sigmaDotKld = sigmaDotAff + sigmaDotWtd
     return sigmaDotKld,T,sigmaDotAff,sigmaDotWtd,dd1H2,dd2H1
 
-def CreateCoarseGrainedTraj(nDim,nTimeStamps,mW,vHiddenStates,timeRes):
+def CreateCoarseGrainedTraj(nDim,nTimeStamps,mW,vHiddenStates,timeRes,semiCG=False,isCG=True):
     # randomize init state from the steady-state distribution
     vP0 = np.array([0.25,0.25,0.25,0.25])
     n,vPi,mW,vWPn = MESolver(nDim,vP0,mW,timeRes)
     initState = np.random.choice(nDim,1,p=vPi)
     # Create trajectory
     mTrajectory, mW = CreateTrajectory(nDim,nTimeStamps,initState,mW) # Run Create Trajectory
-    mCgTrajectory,nCgDim = CoarseGrainTrajectory(mTrajectory,nDim,vHiddenStates)   
+    if isCG:
+        mCgTrajectory,nCgDim = CoarseGrainTrajectory(mTrajectory,nDim,vHiddenStates,semiCG=semiCG)
+    else:
+        mCgTrajectory = mTrajectory
+        nCgDim = nDim
     return mCgTrajectory,nCgDim
 
 

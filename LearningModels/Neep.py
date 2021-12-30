@@ -176,7 +176,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
             
             avgValLosses = 0
             avgValScores = []
-            
+
             # Use validation step only if it's last batch or it modolus of 1e3
             k += 1
             if (k >= 1000 and not(k % 1000)) or (k == len(trainLoader)):
@@ -204,7 +204,7 @@ def make_trainRnn(model,optimizer,seqSize,device):
                         bestEpErr = torch.abs(bestEpRate-y_valCpu)/y_valCpu
                         bestValidLoss = avgValLoss
         if iEpoch % 1 == 0:                
-            print('Epoch : ', iEpoch+1, '\t' 'Best Loss :', bestValidLoss, '\t' 'Best EP rate err Train :', bestEpErr)
+            print('Epoch : ', iEpoch+1, '\t' 'Best Valid Loss :', bestValidLoss, '\t' 'Best Valid EPR:', bestEpRate)
         
         return bestValidLoss, bestEpRate, bestEpErr
     return trainRnn  

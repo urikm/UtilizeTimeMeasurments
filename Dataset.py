@@ -21,7 +21,7 @@ import numpy as np
 
 from PhysicalModels.UtilityTraj import EntropyRateCalculation
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
-from PhysicalModels.TrajectoryCreation import EstimateTrajParams
+import PhysicalModels.TrajectoryCreation as ct #CreateTrajectory, EstimateTrajParams
 import PhysicalModels.PartialTrajectories as pt
 from RNeepSampler import CartesianSeqSampler as CSS
 from Utility.Params import BaseSystem, DataSetCreationParams
@@ -36,7 +36,7 @@ device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 # This dataset mainly used for analysing the RNEEP implementation on markov chains with rate matrix from Gili's 2019 paper
 class CGTrajectoryDataSet(Dataset):
     def __init__(self, seqLen=32, batchSize=4096, lenTrajFull=1e6, extForce=0., mode='train',
-                 rootDir='StoredDataSets', loadSet=False, isBaseSystem=True):
+                 rootDir='StoredDataSets', loadSet=False, isBaseSystem=True, semiCG=False):
         # Note: only available modes are : 'train','valid','test'
         assert (mode in ['train', 'valid', 'test'])
 
@@ -62,7 +62,8 @@ class CGTrajectoryDataSet(Dataset):
                 _, vPiX, _, _ = MESolver(nDim, vP0, mWx, timeRes)
                 self.targetEPR = EntropyRateCalculation(nDim, mWx, vPiX)
                 # Create and save dataset. Updates targerKLD and nBatchedSamples attributes
-                self.targetKLD, self.nBatchedSamples, self.timeFactor = self.CreateRNeepDataSet(lenTrajFull, mode, self.DataSetDir)
+                self.targetKLD, self.nBatchedSamples, self.timeFactor = \
+                    self.CreateRNeepDataSet(lenTrajFull, mode, self.DataSetDir, semiCG=semiCG)
             # Save Dataset information for future loading
         else:
             # Read data set description
@@ -91,7 +92,7 @@ class CGTrajectoryDataSet(Dataset):
 
 
     # The function creates and stores offline the trajectory by batches
-    def CreateRNeepDataSet(self, lenTrajFull, mode, saveDir):
+    def CreateRNeepDataSet(self, lenTrajFull, mode, saveDir, semiCG=False):
         # The Dataset will be created for specific forces.
         # The Dataset is saved by BATCHES and NOT single SAMPLES
 
@@ -114,8 +115,9 @@ class CGTrajectoryDataSet(Dataset):
 
         # Create Coarse-Grained trajectory
         mWx = pt.CalcW4DrivingForce(mW, self.extForce)
-        dataSet, nCgDim = pt.CreateCoarseGrainedTraj(nDim, lenTrajFull, mWx, vHiddenStates, timeRes)
+        dataSet, nCgDim = pt.CreateCoarseGrainedTraj(nDim, lenTrajFull, mWx, vHiddenStates, timeRes, semiCG=semiCG)
         kldEstimator, T, _, _, _, _ = pt.CalcKLDPartialEntropyProdRate(dataSet, nCgDim)
+
         dataSet = torch.from_numpy(dataSet[:, 0])
         dataSet = torch.utils.data.TensorDataset(dataSet)
 
@@ -224,4 +226,4 @@ if __name__ == '__main__':
 
     # Init Dataset - including dataset dumping
     trainDataSet = CGTrajectoryDataSet(lenTrajFull=nTimeStamps)
-    trainDataSet.ChangeBatchedSamples(seqLen=128)
+    #trainDataSet.ChangeBatchedSamples(seqLen=128)
