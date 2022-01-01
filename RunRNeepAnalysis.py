@@ -41,11 +41,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Hidden Markov EPR estimation using NEEP")
     parser.add_argument('--lr', default=1e-4, type=float,
                         help='learning rate')
-    parser.add_argument('--wd', default=5e-5, type=float,
+    parser.add_argument('--wd', default=1e-5, type=float,
                         help='weight decay')
     parser.add_argument('--batch_size', '-b', default=4096, type=int,
                         help='Training batch size')
-    parser.add_argument('--epochs', '-e', default=10, type=int,
+    parser.add_argument('--epochs', '-e', default=50, type=int,
                         help='Number of epochs to run')
     parser.add_argument('--seq_list', '-l', default='3,16,32,64,128', type=str,
                         help='Input sequence size to check')
@@ -56,7 +56,7 @@ def parse_args():
                         metavar="PATH",help="path to save result (default: none)")
     parser.add_argument("--dump-ds",
                         default="StoredDataSets",type=str,
-                        metavar="PATH",help="path to dump datset (default: 'StoredDataSets')")
+                        metavar="PATH",help="path to dump dataset (default: 'StoredDataSets')")
     parser.add_argument("--semiCG", action="store_true",help="Perform semi coarse grain")
     return parser.parse_args()
 
@@ -151,7 +151,6 @@ if __name__ == '__main__':
                 tic = time.time()
                 bestLossEpoch,bestEpRate,bestEpErr = trainRnn(trainLoader,validLoader,epoch)
                 toc = time.time()
-                print('Elapsed time of Epoch '+str(epoch+1)+' is: '+str(toc-tic)+" ; KLD est: "+str(bestEpRate/T))
                 if bestLossEpoch < bestLoss:
                     mNeep[k,i] = bestEpRate/T
                     bestLoss = bestLossEpoch
@@ -163,6 +162,7 @@ if __name__ == '__main__':
                         'epoch': epoch,
                     }
                     torch.save(state, plotDir+os.sep+'model_forceIdx'+str(idx)+'seqSize'+str(iSeqSize)+'.pt')
+                print('Elapsed time of Epoch '+str(epoch+1)+' is: '+str(toc-tic)+" ; KLD est: "+str(bestEpRate/T))
                 # Generate new batches from same sequence sizes
                 trainDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
                 validDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])

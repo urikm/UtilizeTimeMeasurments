@@ -88,9 +88,8 @@ def EstimatePluginM(vStatesTraj, m):
 
 
 # %% Estimate \hat{d}_\infty - plugin estimator in infinity
-def EstimatePluginInf(mCgTrajectory):
+def EstimatePluginInf(mCgTrajectory, maxSeq=7):
     # By fitting plugin estimator of order m we find the infinity plugin
-    maxSeq = 7
     vMgrid = np.linspace(2, maxSeq, maxSeq-2+1, dtype=np.intc)
     vGrid2Fit = np.concatenate(([2], range(3, maxSeq+1, 2)))
     vKldM = np.ones(vMgrid.shape)
