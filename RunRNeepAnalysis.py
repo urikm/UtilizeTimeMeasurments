@@ -128,7 +128,7 @@ if __name__ == '__main__':
         for iSeqSize in vSeqSize:
             print('Calculating estimator for x = '+str(x)+' ; Sequence size: '+str(iSeqSize)+" ; KLD: "+str(vKldValid[i]))
             validLoader = torch.utils.data.DataLoader(validDataSet)
-            trainLoader = torch.utils.data.DataLoader(trainDataSet, shuffle=True)
+            trainLoader = torch.utils.data.DataLoader(trainDataSet)
 
             # define RNN model
             if rneeptFlag == False:
@@ -163,6 +163,9 @@ if __name__ == '__main__':
                         'epoch': epoch,
                     }
                     torch.save(state, plotDir+os.sep+'model_forceIdx'+str(idx)+'seqSize'+str(iSeqSize)+'.pt')
+                # Generate new batches from same sequence sizes
+                trainDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
+                validDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
 
             k += 1
             # Modify the batches to represent he next seqLen input

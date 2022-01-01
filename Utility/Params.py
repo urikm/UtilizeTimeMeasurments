@@ -11,7 +11,7 @@ def BaseSystem():
 def DataSetCreationParams():
     samplePrefix = 'BatchedSample_'
     fileSuffix = '.pt'
-    trainIterInEpoch = 5000
+    trainIterInEpoch = 2000
     dsDescriptorName = 'DataSetDescriptor'
     trajFileName = 'CoarseGrainedTrajectory'
 

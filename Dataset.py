@@ -118,7 +118,7 @@ class CGTrajectoryDataSet(Dataset):
         dataSet, nCgDim = pt.CreateCoarseGrainedTraj(nDim, lenTrajFull, mWx, vHiddenStates, timeRes, semiCG=semiCG)
         kldEstimator, T, _, _, _, _ = pt.CalcKLDPartialEntropyProdRate(dataSet, nCgDim)
 
-        dataSet = torch.from_numpy(dataSet[:, 0])
+        dataSet = torch.from_numpy(dataSet[:, 0]).float()
         dataSet = torch.utils.data.TensorDataset(dataSet)
 
         # Define sampler
