@@ -9,6 +9,7 @@ Created on Sat Oct 31 18:23:27 2020
 @description: Creates trajectory of CTMC according to given rate matrix and initial condition
 """
 # %% Imports
+import time
 import numpy as np
 import random as rd
 import matplotlib.pyplot as plt
@@ -16,8 +17,10 @@ import scipy.stats as stats
 from PhysicalModels.UtilityTraj import GenRateMat,EntropyRateCalculation
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 from PhysicalModels.MasterEqSim import PrintMasterEqRes
+from numba import njit
 
 # %% Create single trajectory
+@njit
 def CreateTrajectory(nDim,nTimeStamps,initState,*args):
     # NOTE: 1st *args should be mW and it's optional!
     ## Inits   
@@ -31,38 +34,48 @@ def CreateTrajectory(nDim,nTimeStamps,initState,*args):
     elif len(args)==2:
         mW = args[0]
         mcFlag = args[1]
-    
-    mP = (mW-np.diag(np.diagonal(mW)))/abs(np.diagonal(mW)) # calculate discrete PDF for states jumps
+
+    mDiag = np.multiply(np.eye(nDim), mW) #For competability with jit
+    mP = (mW-mDiag)/np.abs(np.dot(mDiag, np.ones(4))) # calculate discrete PDF for states jumps
     mTrajectory = np.zeros((nTimeStamps, 2))
 
-    currState = initState[0]
+    currState = initState
     # memory for indices for each state
-    mMem = np.zeros([nDim,nTimeStamps],dtype=int)
+    mMem = np.zeros((int(nDim),int(nTimeStamps)))
     vCount = np.zeros(nDim)
     
     ## For loop to create trajectory (according to Gillespie Algorithm)
     for iStep in range(nTimeStamps):
         #Using the calculated PDF randomize jump
         if not mcFlag:
-            nextState = np.random.choice(nDim,1,p=mP[:,currState].reshape(nDim))
+            pass
+            # nextState = np.random.choice(nDim,1,p=mP[:,currState])
             #nextState = np.array(rd.choices(range(nDim),weights=mP[:,currState].reshape(nDim)))
             ### from neep paper
         else:
             mc = np.random.uniform(0.0, 1.0)
             interval = np.cumsum(mP[:,currState])
             nextState = np.sum(interval < mc)
-            ###
+
+    ### This implementation is jit competible - if removing jit - DONT USE THIS!
+        mTrajectory[iStep, 1] = np.random.exponential(1 / abs(mW[currState, currState]))
+    ###
+
     # save jumping step    
         mTrajectory[iStep,0] = currState
         mMem[currState,int(vCount[currState])] = iStep
         vCount[currState] = vCount[currState] + 1
     # update current state
         currState = nextState
-    # randomize waiting times   
-    for iState in range(nDim):  
-        nCounts = int(vCount[iState])
-        waitingTime = np.random.exponential(1/abs(mW[iState,iState]), nCounts)
-        mTrajectory[mMem[iState, 0:nCounts], 1] = waitingTime
+
+    # ### in case of not using jit - it should be used this way!
+    # # randomize waiting times   - optimized without using jit!!!
+    # for iState in range(nDim):
+    #     nCounts = int(vCount[iState])
+    #     waitingTime = np.random.exponential(1/abs(mW[iState,iState]), nCounts)
+    #     idx = np.int32(mMem[iState, 0:nCounts])
+    #     mTrajectory[idx, 1] = waitingTime
+    # ###s
 
     return mTrajectory, mW
 
@@ -177,7 +190,7 @@ if __name__ == '__main__':
     ## UI
     flagPlot = True
     nDim = 4 # dimension of the problem
-    nTimeStamps = int(1e5) # how much time stamps will be saved
+    nTimeStamps = int(1e7) # how much time stamps will be saved
     initState = rd.randrange(nDim) # Define initial state in T=0
     if 1:
         mW = GenRateMat(nDim) # transition matrix
@@ -185,8 +198,10 @@ if __name__ == '__main__':
     else:
         mW = np.array([[-11.,1.,0.,7.],[9.,-11.,10.,1.],[0.,4.,-15.,8.],[2.,6.,5.,-16.]])
         timeStamp = 0.001
+    tic = time.time()
     mTrajectory, mW = CreateTrajectory(nDim,nTimeStamps,initState,mW) # Run Create Trajectory
-    
+    toc = time.time()
+    print("Create Trajectory of length: "+str(nTimeStamps) +" in: "+str(toc-tic)+"s")
     ## Start of analysing portion of the trajectory
     startInd = 0
     endInd = nTimeStamps

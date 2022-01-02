@@ -90,20 +90,19 @@ def EstimatePluginM(vStatesTraj, m):
 # %% Estimate \hat{d}_\infty - plugin estimator in infinity
 def EstimatePluginInf(mCgTrajectory, maxSeq=7):
     # By fitting plugin estimator of order m we find the infinity plugin
-    vMgrid = np.linspace(2, maxSeq, maxSeq-2+1, dtype=np.intc)
-    vGrid2Fit = np.concatenate(([2], range(3, maxSeq+1, 2)))
-    vKldM = np.ones(vMgrid.shape)
-    vEprEst = np.ones(vGrid2Fit.shape)
+    vGrid = np.linspace(2, maxSeq, maxSeq - 2 + 1, dtype=np.intc)
+    vKldM = np.ones(vGrid.shape)
+    vEprEst = np.ones(vGrid.shape)
     # Collect data for fitting
-    for m, iM in enumerate(vMgrid):
+    for m, iM in enumerate(vGrid):
         print('Estimating KLD for seq size: ' + str(iM))
         vKldM[m] = EstimatePluginM(mCgTrajectory, iM)
     print('Completed gather fitting points. Start fit...')
     # Fit the data
 
     vEprEst[0] = vKldM[0]
-    vEprEst[1:] = vKldM[1::2] - vKldM[::2]
-    popt, _ = curve_fit(FitFunc, vGrid2Fit, vEprEst)
+    vEprEst[1:] = vKldM[1:] - vKldM[:-1]
+    popt, _ = curve_fit(FitFunc, vGrid, vEprEst)
     kldInf = popt[0]
 
     return kldInf

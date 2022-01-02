@@ -20,7 +20,7 @@ from sklearn.model_selection import GridSearchCV,LeaveOneOut
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 from PhysicalModels.TrajectoryCreation import CreateTrajectory,EstimateTrajParams
 from PhysicalModels.UtilityTraj import CalcSteadyStateCurrent, EntropyRateCalculation
-
+from numba import njit
 
 # %% Assuming only states 0,1 are observable. TODO : maybe make more generic?
 
@@ -115,34 +115,35 @@ def CalcW4DrivingForce(mW,x):
 
 
 # %% Coarse Grain trajectory
-def CoarseGrainTrajectory(mTrajectory,nFullDim,vHiddenStates,semiCG=False):
+@njit
+def CoarseGrainTrajectory(mTrajectory, nFullDim, vHiddenStates, semiCG=False):
     mCgTrajectory = np.copy(mTrajectory)
-    nJumps = np.size(mCgTrajectory,0)
-    iHidden = nFullDim-np.size(vHiddenStates,0)
+    nJumps = mCgTrajectory.shape[0]
+    iHidden = nFullDim - vHiddenStates.shape[0]
     if semiCG:
         hState = iHidden
     else:
-        hState = -2 #iHidden #  define as intermediate state every hidden state that is not last in it's sequence
-    
+        hState = -2  # iHidden #  define as intermediate state every hidden state that is not last in it's sequence
+
     for iJump in range(nJumps):
-        
-        if (mCgTrajectory[iJump,0] in vHiddenStates):
-            if (iJump < nJumps-1):
-                    if (mCgTrajectory[iJump+1,0] in vHiddenStates):
-                        mCgTrajectory[iJump,0] = hState
-                        mCgTrajectory[iJump+1,1] += mCgTrajectory[iJump,1] # cumsum waiting times for each sequence
-                    else:
-                         mCgTrajectory[iJump,0] = iHidden                                              
+
+        if (mCgTrajectory[iJump, 0] in vHiddenStates):
+            if (iJump < nJumps - 1):
+                if (mCgTrajectory[iJump + 1, 0] in vHiddenStates):
+                    mCgTrajectory[iJump, 0] = hState
+                    mCgTrajectory[iJump + 1, 1] += mCgTrajectory[iJump, 1]  # cumsum waiting times for each sequence
+                else:
+                    mCgTrajectory[iJump, 0] = iHidden
             else:
-                mCgTrajectory[iJump,0] = iHidden
+                mCgTrajectory[iJump, 0] = iHidden
 
     if semiCG:
-        pass # Dont do nothing in semi CG
+        pass  # Dont do nothing in semi CG
     else:
-        mCgTrajectory = mCgTrajectory[(mCgTrajectory[:,0]!=hState),:]  # remove '-2' states in Full CG
+        mCgTrajectory = mCgTrajectory[(mCgTrajectory[:, 0] != hState), :]  # remove '-2' states in Full CG
 
-    nCgDim = iHidden+1
-    return mCgTrajectory,nCgDim
+    nCgDim = iHidden + 1
+    return mCgTrajectory, nCgDim
 
 # Estimate 2nd order statistics of the trajectory (i->j->k transitions)
 # TODO: make competible for every combination , now competible only for 2019's paper example
@@ -240,7 +241,7 @@ def CreateCoarseGrainedTraj(nDim,nTimeStamps,mW,vHiddenStates,timeRes,semiCG=Fal
     # randomize init state from the steady-state distribution
     vP0 = np.array([0.25,0.25,0.25,0.25])
     n,vPi,mW,vWPn = MESolver(nDim,vP0,mW,timeRes)
-    initState = np.random.choice(nDim,1,p=vPi)
+    initState = np.random.choice(nDim,1,p=vPi).item()
     # Create trajectory
     mTrajectory, mW = CreateTrajectory(nDim,nTimeStamps,initState,mW) # Run Create Trajectory
     if isCG:
