@@ -45,6 +45,8 @@ def parse_args():
                         help='weight decay')
     parser.add_argument('--batch_size', '-b', default=4096, type=int,
                         help='Training batch size')
+    parser.add_argument('--length', '-n', default=1e8, type=int,
+                        help='Length of trajectory')
     parser.add_argument('--epochs', '-e', default=20, type=int,
                         help='Number of epochs to run')
     parser.add_argument('--seq_list', '-l', default='3,16,32,64,128', type=str,
@@ -82,7 +84,7 @@ if __name__ == '__main__':
 
     ## Define base dynamics
     mW, nDim, vHiddenStates, timeRes = BaseSystem()
-    nTimeStamps = int(maxSeqSize * opt.batch_size * 1e2) # how many time stamps will be saved
+    nTimeStamps = int(length) # how many time stamps will be saved
 
     # Calculate Stalling data
     vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW)    
