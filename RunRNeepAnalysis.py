@@ -45,7 +45,7 @@ def parse_args():
                         help='weight decay')
     parser.add_argument('--batch_size', '-b', default=4096, type=int,
                         help='Training batch size')
-    parser.add_argument('--epochs', '-e', default=50, type=int,
+    parser.add_argument('--epochs', '-e', default=20, type=int,
                         help='Number of epochs to run')
     parser.add_argument('--seq_list', '-l', default='3,16,32,64,128', type=str,
                         help='Input sequence size to check')

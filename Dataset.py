@@ -14,6 +14,7 @@ Created on Fri Jan  1 07:05:53 2021
 
 import os
 import shutil
+import time
 
 import torch
 from torch.utils.data import Dataset
@@ -182,13 +183,13 @@ class CGTrajectoryDataSet(Dataset):
         # Define Dataloader
         dataLoader = torch.utils.data.DataLoader(dataSet, sampler=sampler)
 
+
         # Sample batches and save them
         print("Modifying Dataset")
         for iIter, x_batch in enumerate(dataLoader):
             x_batch = x_batch[0].squeeze()
             torch.save(x_batch, self.DataSetDir + os.sep + samplePrefix + str(iIter) + fileSuffix)
         print("Dataset Modified!")
-
         self.nBatchedSamples = iIter + 1
 
         # Update Dataset descriptor
@@ -197,8 +198,6 @@ class CGTrajectoryDataSet(Dataset):
         dTraj['batchSize'] = self.batchSize
         dTraj['nBatchedSamples'] = self.nBatchedSamples
         torch.save(dTraj, self.DataSetDir + os.sep + dsDescriptorName + fileSuffix)
-
-
 
         return True
 
@@ -222,8 +221,9 @@ class CGTrajectoryDataSet(Dataset):
 
 if __name__ == '__main__':
     # Define estimated size of trajectories(this will be the size of full trajectory which will be coarse grained)
-    nTimeStamps = 1e7 #int(4096 * 128 * 1e2)  # batchSize X maxBatchSize X minNumBatches
+    nTimeStamps = 1e8 #int(4096 * 128 * 1e2)  # batchSize X maxBatchSize X minNumBatches
 
     # Init Dataset - including dataset dumping
+
     trainDataSet = CGTrajectoryDataSet(lenTrajFull=nTimeStamps)
-    #trainDataSet.ChangeBatchedSamples(seqLen=128)
+    trainDataSet.ChangeBatchedSamples(seqLen=128)

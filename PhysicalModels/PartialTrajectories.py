@@ -239,8 +239,13 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory,nDim):
 
 def CreateCoarseGrainedTraj(nDim,nTimeStamps,mW,vHiddenStates,timeRes,semiCG=False,isCG=True):
     # randomize init state from the steady-state distribution
-    vP0 = np.array([0.25,0.25,0.25,0.25])
+    vP0 = np.array([0.25,0.25,0.25,0.25], dtype=np.float32)
     n,vPi,mW,vWPn = MESolver(nDim,vP0,mW,timeRes)
+    normP = vPi.sum() # due to numeric prescision problems we need to normalize to 1
+    if normP > 0.999:
+        vPi = vPi/normP
+    else:
+        assert 0, "The Master equation solver doesnt converge for this system - you should look at it"
     initState = np.random.choice(nDim,1,p=vPi).item()
     # Create trajectory
     mTrajectory, mW = CreateTrajectory(nDim,nTimeStamps,initState,mW) # Run Create Trajectory

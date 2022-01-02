@@ -38,7 +38,7 @@ def MasterEqSolver(nDim, vP0, *args):
     stopThreshold = 1e-8
     
     nMaxIters = 5e3
-    vWPn = np.zeros(int(nMaxIters))
+    vWPn = np.zeros(int(nMaxIters), dtype=np.float32)
     n = 0
     
     ## Run numeric solution of the Master Equation
