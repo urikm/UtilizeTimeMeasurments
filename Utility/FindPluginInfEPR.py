@@ -51,7 +51,7 @@ def CreateNEEPTrajectory(nTimeStamps=5e4, x=0., fullCg=False):
 
 
 # %% Estimate \hat{d}_m - plugin estimator with sequence of m
-def EstimatePluginM(vStatesTraj, m):
+def EstimatePluginM(vStatesTraj, m, gamma=1e-10):
     # We will use the symmetry(anti-symmetry) of the KLD for our favor.
     # The following algorithm uses this property of the target KLD.
     nEffLength = len(vStatesTraj) - m + 1#np.floor(len(vStatesTraj)/m)#
@@ -60,16 +60,18 @@ def EstimatePluginM(vStatesTraj, m):
     endFlag = False
     countF = 0
     countB = 0
-    eps = 1e-9
+    opts = m**3
+    zeroProb = gamma/(nEffLength+opts*gamma)
+
     # Collect sequence statistics for one direction sequences
     vIndicateSeq = np.correlate(vStatesTraj, vSeq2Dec) # this correlation equal to coding each sequence
     vSeqs1, vProbOfSeq1 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
-    vProbOfSeq1 = vProbOfSeq1/nEffLength # these are the "true" probabilities for each sequence
+    vProbOfSeq1 = (vProbOfSeq1+gamma)/(nEffLength+opts*gamma)  #vProbOfSeq1/nEffLength # these are the "true" probabilities for each sequence
 
     # Same for other direction
     vIndicateSeq = np.correlate(vStatesTraj, np.flip(vSeq2Dec)) # this correlation equal to coding each sequence
     vSeqs2, vProbOfSeq2 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
-    vProbOfSeq2= vProbOfSeq2/nEffLength # used to calculate the probabilities log ratio of forward and backward trajectory
+    vProbOfSeq2= (vProbOfSeq2+gamma)/(nEffLength+opts*gamma)  #vProbOfSeq2/nEffLength # used to calculate the probabilities log ratio of forward and backward trajectory
 
     while not endFlag:
         if vSeqs1[countF] == vSeqs2[countB]:
@@ -78,8 +80,12 @@ def EstimatePluginM(vStatesTraj, m):
             countB += 1
         elif vSeqs1[countF] > vSeqs2[countB]:
             countB += 1
+            if gamma > 0:
+                kldEstm += zeroProb*np.log(zeroProb/vProbOfSeq2[countB])
         else:
             countF += 1
+            if gamma > 0:
+                kldEstm += vProbOfSeq1[countF] * np.log(vProbOfSeq1[countF] / zeroProb)
         if countF >= len(vProbOfSeq1) or countB >= len(vProbOfSeq1):
             endFlag = True
     ## This works only if all the possible sequences are observed
@@ -88,21 +94,23 @@ def EstimatePluginM(vStatesTraj, m):
 
 
 # %% Estimate \hat{d}_\infty - plugin estimator in infinity
-def EstimatePluginInf(mCgTrajectory, maxSeq=7):
+def EstimatePluginInf(mCgTrajectory, maxSeq=7, gamma=1e-10):
     # By fitting plugin estimator of order m we find the infinity plugin
     vGrid = np.linspace(2, maxSeq, maxSeq - 2 + 1, dtype=np.intc)
+    # vGrid2Fit = np.concatenate(([2], range(3, maxSeq+1, 2)))
     vKldM = np.ones(vGrid.shape)
-    vEprEst = np.ones(vGrid.shape)
+    vEprEst = np.ones(vGrid.shape)  #np.ones(vGrid2Fit.shape)
     # Collect data for fitting
     for m, iM in enumerate(vGrid):
         print('Estimating KLD for seq size: ' + str(iM))
-        vKldM[m] = EstimatePluginM(mCgTrajectory, iM)
+        vKldM[m] = EstimatePluginM(mCgTrajectory, iM, gamma=gamma)
     print('Completed gather fitting points. Start fit...')
     # Fit the data
 
     vEprEst[0] = vKldM[0]
-    vEprEst[1:] = vKldM[1:] - vKldM[:-1]
+    vEprEst[1:] = vKldM[1:] - vKldM[:-1] #vKldM[1::2] - vKldM[::2] #
     popt, _ = curve_fit(FitFunc, vGrid, vEprEst)
+    # popt, _ = curve_fit(FitFunc, vGrid2Fit, vEprEst)
     kldInf = popt[0]
 
     return kldInf

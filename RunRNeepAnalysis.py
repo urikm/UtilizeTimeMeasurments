@@ -45,7 +45,7 @@ def parse_args():
                         help='weight decay')
     parser.add_argument('--batch_size', '-b', default=4096, type=int,
                         help='Training batch size')
-    parser.add_argument('--length', '-n', default=1e8, type=int,
+    parser.add_argument('--length', '-n', default=5e7, type=int,
                         help='Length of trajectory')
     parser.add_argument('--epochs', '-e', default=20, type=int,
                         help='Number of epochs to run')
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     ## Define base dynamics
     mW, nDim, vHiddenStates, timeRes = BaseSystem()
-    nTimeStamps = int(length) # how many time stamps will be saved
+    nTimeStamps = int(opt.length) # how many time stamps will be saved
 
     # Calculate Stalling data
     vPiSt,xSt,r01,r10  = pt.CalcStallingData(mW)    
@@ -165,9 +165,7 @@ if __name__ == '__main__':
                     }
                     torch.save(state, plotDir+os.sep+'model_forceIdx'+str(idx)+'seqSize'+str(iSeqSize)+'.pt')
                 print('Elapsed time of Epoch '+str(epoch+1)+' is: '+str(toc-tic)+" ; KLD est: "+str(bestEpRate/T))
-                # Generate new batches from same sequence sizes
-                trainDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
-                validDataSet.ChangeBatchedSamples(seqLen=vSeqSize[k])
+
 
             k += 1
             # Modify the batches to represent he next seqLen input
