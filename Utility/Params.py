@@ -44,6 +44,10 @@ def ExtForcesGrid(chooseGrid, interpRes=5e-3):
         vGrid = np.arange(-2., 1., 0.25)
         vGridInterp = np.arange(-2., 1., interpRes)
         subFolder = 'AnalysisExt_'
+    elif chooseGrid == 'converege':
+        vGrid = np.concatenate((np.arange(-0.75, xSt, 0.3), np.arange(xSt, 2.25, 0.3)))
+        vGridInterp = np.concatenate((np.arange(-0.75, xSt, interpRes), np.arange(xSt, 2.25, interpRes)))
+        subFolder = 'AnalysisPaper_'
     else:
         raise Exception("Wrong grid chosen!")
 
