@@ -8,6 +8,20 @@ def BaseSystem():
 
     return mW, nDim, vHiddenStates, timeRes
 
+def HiddenControl(hidBond=0): # hidBond=0 means that hidden states 3-4 are disconnected
+    mW, nDim, vHiddenStates, timeRes = BaseSystem()
+    mW[2, 2] = mW[2, 2] + mW[3, 2] - hidBond
+    mW[3, 3] = mW[3, 3] + mW[2, 3] - hidBond
+    mW[3, 2] = hidBond
+    mW[2, 3] = hidBond
+
+    mW[0, 2] = 33
+    mW[2, 0] = 11
+    mW[0, 0] = mW[0, 0] - mW[2, 0]
+    mW[2, 2] = mW[2, 2] - mW[0, 2]
+
+    return mW, nDim, vHiddenStates, timeRes
+
 def DataSetCreationParams():
     samplePrefix = 'BatchedSample_'
     fileSuffix = '.pt'
@@ -18,7 +32,7 @@ def DataSetCreationParams():
     return samplePrefix, fileSuffix, trainIterInEpoch, dsDescriptorName, trajFileName
 
 def ExtForcesGrid(chooseGrid, interpRes=5e-3):
-    xSt = 0.6700199322178189  # Calculated using Master Equation Solver
+    xSt = 0.6700199322178189  # 0.5703983252253606 #Calculated using Master Equation Solver
     if chooseGrid == 'full':
         vGrid = np.concatenate((np.arange(-2., xSt, 0.3), np.arange(xSt, 3., 0.3)))
         vGridInterp = np.concatenate((np.arange(-2., xSt, interpRes), np.arange(xSt, 3., interpRes)))
