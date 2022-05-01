@@ -103,9 +103,9 @@ def EstimatePluginInf(mCgTrajectory, maxSeq=7, gamma=1e-9):
     vEprEst = np.ones(vGrid.shape)  #np.ones(vGrid2Fit.shape)
     # Collect data for fitting
     for m, iM in enumerate(vGrid):
-        print('Estimating KLD for seq size: ' + str(iM))
+        #print('Estimating KLD for seq size: ' + str(iM))
         vKldM[m], _ = EstimatePluginM(mCgTrajectory, iM, gamma=gamma)
-    print('Completed gather fitting points. Start fit...')
+    #print('Completed gather fitting points. Start fit...')
     # Fit the data
 
     vEprEst[0] = vKldM[0]

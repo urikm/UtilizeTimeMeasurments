@@ -1,4 +1,6 @@
 import numpy as np
+import PhysicalModels.UtilityTraj as ut
+
 
 def BaseSystem():
     nDim = 4  # dimension of the problem
@@ -8,17 +10,38 @@ def BaseSystem():
 
     return mW, nDim, vHiddenStates, timeRes
 
-def HiddenControl(hidBond=0): # hidBond=0 means that hidden states 3-4 are disconnected
+def HiddenControl(hidBond=0, rate0to2=22, rate2to0=11): # hidBond=0 means that hidden states 3-4 are disconnected
     mW, nDim, vHiddenStates, timeRes = BaseSystem()
     mW[2, 2] = mW[2, 2] + mW[3, 2] - hidBond
     mW[3, 3] = mW[3, 3] + mW[2, 3] - hidBond
     mW[3, 2] = hidBond
     mW[2, 3] = hidBond
 
-    mW[0, 2] = 33
-    mW[2, 0] = 11
-    mW[0, 0] = mW[0, 0] - mW[2, 0]
-    mW[2, 2] = mW[2, 2] - mW[0, 2]
+
+    mW[0, 0] = mW[0, 0] + mW[2, 0] - rate0to2
+    mW[2, 2] = mW[2, 2] - mW[0, 2] - rate2to0
+    mW[2, 0] = rate0to2
+    mW[0, 2] = rate2to0
+
+    return mW, nDim, vHiddenStates, timeRes
+
+def RingSystem():
+    nDim = 4  # dimension of the problem
+    vHiddenStates = np.array([2, 3])  # states 3 and 4 for 4-D state sytem
+    timeRes = 1
+    mW = ut.GenRateMat(nDim)
+
+    mW[0, 0] = mW[0, 0] - mW[3, 0]
+    mW[3, 0] = 0
+
+    mW[1, 1] = mW[1, 1] - mW[1, 2]
+    mW[1, 2] = 0
+
+    mW[2, 2] = mW[2, 2] - mW[2, 1]
+    mW[2, 1] = 0
+
+    mW[3, 3] = mW[3,3] - mW[0, 3]
+    mW[0, 3] = 0
 
     return mW, nDim, vHiddenStates, timeRes
 
