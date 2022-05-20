@@ -166,47 +166,47 @@ def EstimateTrajParams2ndOrder(nDim,mTrajectory):
             
     return mP2ndOrderTransitions, mWtd
 # Calculate KLD entropy production rate as explained in 2019  paper
-def CalcKLDPartialEntropyProdRate(mCgTrajectory,nDim):
+def CalcKLDPartialEntropyProdRate(mCgTrajectory, nDim):
     # First estimate all statistics from hidden trajectory
-    mIndStates,mWaitTimes,vEstLambdas,mWest,vSS = EstimateTrajParams(nDim,mCgTrajectory)
-    mP2ndOrdTrans, mWtd = EstimateTrajParams2ndOrder(nDim,mCgTrajectory)
+    mIndStates, mWaitTimes, vEstLambdas, mWest, vSS = EstimateTrajParams(nDim, mCgTrajectory)
+    mP2ndOrdTrans, mWtd = EstimateTrajParams2ndOrder(nDim, mCgTrajectory)
     
     # Calculate common paramerters
     vTau = np.zeros(3)
-    vTau[0] = np.sum(mWaitTimes[0])/np.size(mWaitTimes[0],0)
-    vTau[1] = np.sum(mWaitTimes[1])/np.size(mWaitTimes[1],0)
-    vTau[2] = np.sum(mWaitTimes[2])/np.size(mWaitTimes[2],0)
+    vTau[0] = np.sum(mWaitTimes[0])/np.size(mWaitTimes[0], 0)
+    vTau[1] = np.sum(mWaitTimes[1])/np.size(mWaitTimes[1], 0)
+    vTau[2] = np.sum(mWaitTimes[2])/np.size(mWaitTimes[2], 0)
     
     
     vR = np.zeros(3)
-    nTot = np.size(mIndStates[0],0)+np.size(mIndStates[1],0)+np.size(mIndStates[2],0)
-    vR[0] = np.size(mIndStates[0],0)/nTot
-    vR[1] = np.size(mIndStates[1],0)/nTot
-    vR[2] = np.size(mIndStates[2],0)/nTot
+    nTot = np.size(mIndStates[0], 0)+np.size(mIndStates[1], 0)+np.size(mIndStates[2], 0)
+    vR[0] = np.size(mIndStates[0], 0)/nTot
+    vR[1] = np.size(mIndStates[1], 0)/nTot
+    vR[2] = np.size(mIndStates[2], 0)/nTot
     
     T = np.dot(vTau,vR)
-    
+    assert np.abs(T - np.mean(mCgTrajectory[:, 1])) < 1e-15, "Check Tau factor calculation! its not the mean WTD"
     ## Find affinity part 
     # Math: R12 = p21*R[1] = (tau[1]*w21)*(Pi[1]*T/tau[1])=w21*Pi[1]*T
-    R12 = mWest[1,0]*vSS[0]*T
-    R13 = mWest[2,0]*vSS[0]*T
-    R21 = mWest[0,1]*vSS[1]*T
-    R23 = mWest[2,1]*vSS[1]*T
-    R31 = mWest[0,2]*vSS[2]*T
-    R32 = mWest[1,2]*vSS[2]*T
+    R12 = mWest[1, 0]*vSS[0]*T
+    R13 = mWest[2, 0]*vSS[0]*T
+    R21 = mWest[0, 1]*vSS[1]*T
+    R23 = mWest[2, 1]*vSS[1]*T
+    R31 = mWest[0, 2]*vSS[2]*T
+    R32 = mWest[1, 2]*vSS[2]*T
     # Pijk = Pr{to observe i>j>k} => Pijk=R[ijk]*R[i](this probaibility related to markoc chain, not time related)
-    p12_23 = mP2ndOrdTrans[0,1,2]*vR[0]/R12
-    p23_31 = mP2ndOrdTrans[1,2,0]*vR[1]/R23
-    p31_12 = mP2ndOrdTrans[2,0,1]*vR[2]/R31
-    p13_32 = mP2ndOrdTrans[0,2,1]*vR[0]/R13
-    p32_21 = mP2ndOrdTrans[2,1,0]*vR[2]/R32
-    p21_23 = mP2ndOrdTrans[1,0,2]*vR[1]/R21
+    p12_23 = mP2ndOrdTrans[0, 1, 2]*vR[0]/R12
+    p23_31 = mP2ndOrdTrans[1, 2, 0]*vR[1]/R23
+    p31_12 = mP2ndOrdTrans[2, 0, 1]*vR[2]/R31
+    p13_32 = mP2ndOrdTrans[0, 2, 1]*vR[0]/R13
+    p32_21 = mP2ndOrdTrans[2, 1, 0]*vR[2]/R32
+    p21_23 = mP2ndOrdTrans[1, 0, 2]*vR[1]/R21
     
     sigmaDotAff = ((R12-R21)/T*np.log(p12_23*p23_31*p31_12/p13_32/p32_21/p21_23))
     
     ## Find Wtd part
-    p1H2 = mP2ndOrdTrans[0,2,1]*vR[0]
-    p2H1 = mP2ndOrdTrans[1,2,0]*vR[1]
+    p1H2 = mP2ndOrdTrans[0, 2, 1]*vR[0]
+    p2H1 = mP2ndOrdTrans[1, 2, 0]*vR[1]
     ## Use KDE to build Psi functions
     # First estimate bandwidths
     # bandwidths = np.linspace(-0.1, 0.1, 20)
@@ -218,24 +218,24 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory,nDim):
     b1H2 = 0.0043 # manually fixed after running some optimization, see the lines commented before
     b2H1 = b1H2
     # Define density destribution grid
-    vGridDest = np.linspace(0,0.2,100)
+    vGridDest = np.linspace(0, 0.25, 100)
     # kde1H2 = KD(bandwidth=b1H2['bandwidth'])
     # kde2H1 = KD(bandwidth=b2H1['bandwidth'])
     kde1H2 = KD(bandwidth=b1H2)
     kde2H1 = KD(bandwidth=b2H1)
-    kde1H2.fit(mWtd[0][:,None])
-    kde2H1.fit(mWtd[1][:,None])
-    dd1H2 = np.exp(kde1H2.score_samples(vGridDest[:,None])) # density distribution 1->H->2
-    dd2H1 = np.exp(kde2H1.score_samples(vGridDest[:,None])) # density distribution 2->H->1
-    pDd1H2 = dd1H2/np.sum(dd1H2) # Probability density distribution
-    pDd2H1 = dd2H1/np.sum(dd2H1) # Probability density distribution
-    kld1H2 = np.sum(np.multiply(pDd1H2,np.log(np.divide(pDd1H2,pDd2H1))))
-    kld2H1 = np.sum(np.multiply(pDd2H1,np.log(np.divide(pDd2H1,pDd1H2))))
+    kde1H2.fit(mWtd[0][:, None])
+    kde2H1.fit(mWtd[1][:, None])
+    dd1H2 = np.exp(kde1H2.score_samples(vGridDest[:, None]))  # density distribution 1->H->2
+    dd2H1 = np.exp(kde2H1.score_samples(vGridDest[:, None]))  # density distribution 2->H->1
+    pDd1H2 = dd1H2/np.sum(dd1H2)  # Probability density distribution
+    pDd2H1 = dd2H1/np.sum(dd2H1)  # Probability density distribution
+    kld1H2 = np.sum(np.multiply(pDd1H2, np.log(np.divide(pDd1H2, pDd2H1))))
+    kld2H1 = np.sum(np.multiply(pDd2H1, np.log(np.divide(pDd2H1, pDd1H2))))
     
     sigmaDotWtd = (p1H2*kld1H2+p2H1*kld2H1)/T
     
     sigmaDotKld = sigmaDotAff + sigmaDotWtd
-    return sigmaDotKld,T,sigmaDotAff,sigmaDotWtd,dd1H2,dd2H1
+    return sigmaDotKld, T, sigmaDotAff, sigmaDotWtd, dd1H2, dd2H1
 
 def CreateCoarseGrainedTraj(nDim,nTimeStamps,mW,vHiddenStates,timeRes,semiCG=False,isCG=True):
     # randomize init state from the steady-state distribution

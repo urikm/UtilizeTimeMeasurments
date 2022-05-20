@@ -14,7 +14,8 @@ import numpy as np
 import random as rd
 import matplotlib.pyplot as plt
 import scipy.stats as stats
-from PhysicalModels.UtilityTraj import GenRateMat,EntropyRateCalculation
+from Utility.Params import GenRateMat
+from PhysicalModels.UtilityTraj import EntropyRateCalculation
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 from PhysicalModels.MasterEqSim import PrintMasterEqRes
 from numba import njit

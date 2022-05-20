@@ -12,8 +12,8 @@ Created on Sat Oct 17 12:15:11 2020
 # %% Imports
 import numpy as np
 import matplotlib.pyplot as plt 
-from PhysicalModels.UtilityTraj import GenRateMat, MasterEqStep
-
+from PhysicalModels.UtilityTraj import MasterEqStep
+from Utility.Params import GenRateMat
 # %% MasterEq solver for defined dimension. Can use generated or input rate mat 
 def MasterEqSolver(nDim, vP0, *args):
     # NOTE: 1st *args should be mW and it's optional! 
@@ -25,10 +25,10 @@ def MasterEqSolver(nDim, vP0, *args):
     if len(args)==0:
         # Init adjacency matrix
         mW = GenRateMat(nDim)
-        timeJump = 1
+        timeJump = 0.01
     elif len(args)==1:
         mW = args[0]
-        timeJump = 1
+        timeJump = 0.01
     elif len(args)==2:
         mW = args[0]
         timeJump = args[1]

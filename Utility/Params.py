@@ -1,6 +1,13 @@
 import numpy as np
 import PhysicalModels.UtilityTraj as ut
 
+def GenRateMat(nDim, limit):
+    mW = np.random.uniform(limit, size=(nDim,nDim))
+    for k in range(nDim):
+        mW[k,k] = mW[k,k] - np.sum(mW[:,k])
+    vHiddenStates = np.array([2, 3])  # states 3 and 4 for 4-D state sytem
+    timeRes = 0.001
+    return mW, nDim, vHiddenStates, timeRes
 
 def BaseSystem():
     nDim = 4  # dimension of the problem

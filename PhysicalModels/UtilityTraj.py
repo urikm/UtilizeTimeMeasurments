@@ -10,14 +10,6 @@ Created on Sat Oct 31 20:36:13 2020
 """
 import numpy as np
 
-# %% Generate Rate matrix 
-def GenRateMat(nDim):
-    mW = np.random.uniform(size=(nDim,nDim))
-    mW = mW/nDim # Normalize
-    for k in range(nDim):
-        mW[k,k] = mW[k,k] - np.sum(mW[:,k])
-    return mW
-
 # Coarse grain rate matrix by combining hidden states to single state.
 # Note: there is no importance for dweling rate for the hidden state because its not Poisson distributed
 # TODO : write it more general by using the chosen hidden states
