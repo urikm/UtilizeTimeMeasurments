@@ -12,7 +12,7 @@ import Utility.FindPluginInfEPR as infEPR
 import Utility.Params as pr
 
 # %% Init parameters
-nRuns = 10000
+nRuns = 20
 fullTrajLength = int(1e7)
 gamma = 1e-11
 maxSeq = 9
@@ -24,13 +24,16 @@ dResults = {'mW':[], 'F-EPR':[], 'S-EPR':[], 'Full-EPR':[], 'tauFull':[], 'tauSe
 for iSystem in range(nRuns):
     # Randomize system
     vP0 = np.array([0.25, 0.25, 0.25, 0.25])
-    # mW, nDim, vHiddenStates, timeRes = pr.HiddenControl(hidBond=np.random.uniform(15, size=1)[0],
+    # mW, nDim, vHiddenStates, timeRes = pr.GenRateMat(nDim, 30)
+    # mW, nDim, vHiddenStates, timeRes = pr.HiddenControl(hid2to3=np.random.uniform(15, size=1)[0],
+    #                                                  rate3to2=np.random.uniform(15, size=1)[0],
     #                                                  rate0to2=np.random.uniform(30, size=1)[0],
     #                                                  rate2to0=np.random.uniform(30, size=1)[0])
-    # mW, nDim, vHiddenStates, timeRes = pr.HiddenControl(hidBond=5,
-    #                                                  rate0to2=20,
-    #                                                  rate2to0=np.random.uniform(24-6,24+6, size=1)[0])
-    mW, nDim, vHiddenStates, timeRes = pr.GenRateMat(nDim, 30)
+    mW, nDim, vHiddenStates, timeRes = pr.HiddenControl(hid2to3=np.random.uniform(15 - 5, 15 + 5, size=1)[0],
+                                                        hid3to2=np.random.uniform(55 - 5, 55 + 5, size=1)[0],
+                                                        rate0to2=4,
+                                                        rate2to0=20) #np.random.uniform(24-16,24+16, size=1)[0])
+
     n, vPn, mW, vWPn = MESolver(nDim, vP0, mW)
     if vPn.sum() > 0.999:
         vPn = vPn/vPn.sum()

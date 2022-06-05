@@ -76,7 +76,7 @@ for iForce, modelCP in enumerate(modelCPs):
             print('Traj length: ' + str(mEffectiveLen[iLen, iIter]) + ' | EPR: ' + str(mEstimatedEPr[iLen, iIter]))
 
 # %% Plot analysis
-    plt.errorbar(mEffectiveLen.mean(axis=1), mEstimatedEPr.mean(axis=1), xerr=mEffectiveLen.std(axis=1)/2, yerr=mEstimatedEPr.std(axis=1)/2, fmt=':o', label=str(extForce[iForce]))
+    plt.errorbar(mEffectiveLen.mean(axis=1), mEstimatedEPr.mean(axis=1), xerr=mEffectiveLen.std(axis=1)/2, yerr=mEstimatedEPr.std(axis=1)/2, fmt=':o', label='x='+str(extForce[iForce]))
 
 plt.xscale('log')
 plt.xlabel('Effective trajectory length[jumps]')
@@ -85,4 +85,4 @@ plt.title('EPR vs Trajectory length')
 plt.legend()
 plt.show()
 resFig.set_size_inches((16, 16))
-resFig.savefig(f'PlotTrajLengthAnalysis.png')
+resFig.savefig(f'PlotTrajLengthAnalysis.svg')

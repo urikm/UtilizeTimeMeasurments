@@ -51,7 +51,7 @@ def CreateNEEPTrajectory(nTimeStamps=5e4, x=0., fullCg=False):
 
 
 # %% Estimate \hat{d}_m - plugin estimator with sequence of m
-def EstimatePluginM(vStatesTraj, m, gamma=1e-9):
+def EstimatePluginM(vStatesTraj, m, gamma=1e-11):
     # We will use the symmetry(anti-symmetry) of the KLD for our favor.
     # The following algorithm uses this property of the target KLD.
     nEffLength = len(vStatesTraj) - m + 1#np.floor(len(vStatesTraj)/m)#
@@ -95,7 +95,7 @@ def EstimatePluginM(vStatesTraj, m, gamma=1e-9):
 
 
 # %% Estimate \hat{d}_\infty - plugin estimator in infinity
-def EstimatePluginInf(mCgTrajectory, maxSeq=7, gamma=1e-9):
+def EstimatePluginInf(mCgTrajectory, maxSeq=9, gamma=1e-11):
     # By fitting plugin estimator of order m we find the infinity plugin
     vGrid = np.linspace(2, maxSeq, maxSeq - 2 + 1, dtype=np.intc)
     # vGrid2Fit = np.concatenate(([2], range(3, maxSeq+1, 2)))

@@ -17,12 +17,12 @@ def BaseSystem():
 
     return mW, nDim, vHiddenStates, timeRes
 
-def HiddenControl(hidBond=0, rate0to2=22, rate2to0=11): # hidBond=0 means that hidden states 3-4 are disconnected
+def HiddenControl(hid2to3=0, hid3to2=0, rate0to2=22, rate2to0=11): # hidBond=0 means that hidden states 3-4 are disconnected
     mW, nDim, vHiddenStates, timeRes = BaseSystem()
-    mW[2, 2] = mW[2, 2] + mW[3, 2] - hidBond
-    mW[3, 3] = mW[3, 3] + mW[2, 3] - hidBond
-    mW[3, 2] = hidBond
-    mW[2, 3] = hidBond
+    mW[2, 2] = mW[2, 2] + mW[3, 2] - hid2to3
+    mW[3, 3] = mW[3, 3] + mW[2, 3] - hid3to2
+    mW[3, 2] = hid2to3
+    mW[2, 3] = hid3to2
 
 
     mW[0, 0] = mW[0, 0] + mW[2, 0] - rate0to2

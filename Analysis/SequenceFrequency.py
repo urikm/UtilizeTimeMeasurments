@@ -297,7 +297,7 @@ if frFlag:
     plt.legend()
     plt.show()
     figT.set_size_inches((16, 16))
-    figT.savefig(f'PluginFlatching.png')
+    figT.savefig(f'PluginFlashing.svg')
 
 if fcgFlag and scgFlag:
     figT2 = plt.figure()
