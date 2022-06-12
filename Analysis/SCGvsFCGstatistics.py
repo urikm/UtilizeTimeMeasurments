@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 # matplotlib.use('Qt5Agg')
 
-aa = torch.load('..\Results\dResults_40k')  #torch.load('..\Results\dResults_g0_40k')  #
+aa = torch.load('dResults.pt')  #torch.load('..\Results\dResults_40k')  #torch.load('..\Results\dResults_g0_40k')  #
 
 fEPR = np.array(aa['F-EPR'])
 sEPR = np.array(aa['S-EPR'])
@@ -22,9 +22,13 @@ fEPR = fEPR[validInd2]
 fullEPR = fullEPR[validInd2]
 vv = vv[validInd2]
 plt.scatter(fEPR, sEPR, c=vv, cmap='jet')
-plt.plot([0,40],[0,40])
+plt.xlabel('FCG')
+plt.ylabel('SCG')
+plt.plot([0, 5], [0, 5])
 plt.show()
 
 plt.scatter(fEPR, sEPR, c=np.log(fullEPR), cmap='jet')
-plt.plot([0,40],[0,40])
+plt.xlabel('FCG')
+plt.ylabel('SCG')
+plt.plot([0, 5], [0, 5])
 plt.show()

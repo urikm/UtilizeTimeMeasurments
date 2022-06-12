@@ -17,7 +17,7 @@ checkRing = False # relevant for checkHidden == False
 maxSeq = 9
 semiCGruns = 5
 naiveTrajLen = int(1e7)
-gamma = 1e-16
+gamma = 1e-11
 
 # %% Define system
 if not checkHidden:
@@ -32,11 +32,11 @@ vEPRful = np.zeros((len(vGrid),))
 # %% Calculate KLD for FCG with time data
 for ix, x in enumerate(vGrid):
     if checkHidden:
-        mWx, nDim, vHiddenStates, timeRes = HiddenControl(hidBond=x, rate0to2=10)
+        mWx, nDim, vHiddenStates, timeRes = HiddenControl(hid2to3=x, hid3to2=x, rate0to2=10)
     else:
         mWx = pt.CalcW4DrivingForce(mW, x)
-    mCgTraj, nCgDim = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes, semiCG=False)
-    vEPRfcg[ix], T, _, _, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTraj, nCgDim)
+    mCgTraj, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes, semiCG=False)
+    vEPRfcg[ix], T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTraj, nCgDim, vHiddenStates)
     vEPRfcg[ix] = vEPRfcg[ix]*T
     # Calc full EPR
     vP0 = np.array([0.25, 0.25, 0.25, 0.25])
@@ -47,11 +47,11 @@ for ix, x in enumerate(vGrid):
 # %% Calculate Plugin for SCG without time data
 for ix, x in enumerate(vGrid):
     if checkHidden:
-        mWx, nDim, vHiddenStates, timeRes = HiddenControl(hidBond=x, rate0to2=10)
+        mWx, nDim, vHiddenStates, timeRes = HiddenControl(hid2to3=x, hid3to2=x, rate0to2=10)
     else:
         mWx = pt.CalcW4DrivingForce(mW, x)
     for iRun in range(semiCGruns):
-        mCgTraj, nCgDim = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes, semiCG=True)
+        mCgTraj, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes, semiCG=True)
         mEPRscg[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], maxSeq=maxSeq, gamma=gamma)
 
 # %% Plot

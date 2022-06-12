@@ -27,7 +27,7 @@ def CreateGilisTrajectory(nTimeStamps=5e6, x=0.):
     vHiddenStates = np.array([2, 3])  # states 3 and 4 for 4-D state sytem
     # Adjust the rate matrix according to the applied external force
     mWx = pt.CalcW4DrivingForce(mW, x)
-    mCgTrajectory, nCgDim = pt.CreateCoarseGrainedTraj(nDim, nTimeStamps, mWx, vHiddenStates, timeRes)
+    mCgTrajectory, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, nTimeStamps, mWx, vHiddenStates, timeRes)
     return mCgTrajectory, nCgDim
 
 

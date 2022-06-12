@@ -42,14 +42,14 @@ for ix, x in enumerate(vGrid):
     initState = np.random.choice(nDim, 1, p=vPn).item()
     mTrajectory, mW = ct.CreateTrajectory(nDim, naiveTrajLen, initState, mWx)  # Run Create Trajectory
     # Calc Full CG EPR estimator( KLD method) with time data
-    mCgTrajF, nCgDim = pt.CoarseGrainTrajectory(mTrajectory, nDim, vHiddenStates, semiCG=False)
-    vEPRfcg[ix], Tf, _, _, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajF, nCgDim)
+    mCgTrajF, nCgDim, _, _ = pt.CoarseGrainTrajectory(mTrajectory, nDim, vHiddenStates, semiCG=False)
+    vEPRfcg[ix], Tf, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajF, nCgDim, vHiddenStates)
     vEPRfcg[ix] = vEPRfcg[ix]*Tf
     # vEPRfcg[ix] = infEPR.EstimatePluginInf(mCgTrajF[:, 0], maxSeq=maxSeq, gamma=gamma)
     # Calc Semi CG EPR estimator( Plugin method) without time data
-    mCgTrajS, nCgDim = pt.CoarseGrainTrajectory(mTrajectory, nDim, vHiddenStates, semiCG=True)
+    mCgTrajS, nCgDim, _, _ = pt.CoarseGrainTrajectory(mTrajectory, nDim, vHiddenStates, semiCG=True)
     # vEPRscg[ix] = infEPR.EstimatePluginInf(mCgTrajS[:, 0], maxSeq=maxSeq, gamma=gamma)
-    vEPRscg[ix], Ts, _, _, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajS, nCgDim)
+    vEPRscg[ix], Ts, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajS, nCgDim, vHiddenStates)
     vEPRscg[ix] = vEPRscg[ix]*Ts
     # Calc full EPR
     vEPRful[ix] = ut.EntropyRateCalculation(nDim, mWx, vPn)*Tf

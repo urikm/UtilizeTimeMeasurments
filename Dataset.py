@@ -116,8 +116,8 @@ class CGTrajectoryDataSet(Dataset):
 
         # Create Coarse-Grained trajectory
         mWx = pt.CalcW4DrivingForce(mW, self.extForce)
-        dataSet, nCgDim = pt.CreateCoarseGrainedTraj(nDim, lenTrajFull, mWx, vHiddenStates, timeRes, semiCG=semiCG)
-        kldEstimator, T, _, _, _, _ = pt.CalcKLDPartialEntropyProdRate(dataSet, nCgDim)
+        dataSet, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, lenTrajFull, mWx, vHiddenStates, timeRes, semiCG=semiCG)
+        kldEstimator, T, _, _ = pt.CalcKLDPartialEntropyProdRate(dataSet, nCgDim, vHiddenStates)
 
         dataSet = torch.from_numpy(dataSet[:, 0]).float()
         dataSet = torch.utils.data.TensorDataset(dataSet)

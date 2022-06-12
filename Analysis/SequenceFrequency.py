@@ -207,7 +207,7 @@ if fcgFlag:
     vEPRgs = np.zeros((len(vGrid),)) # Hold the plugin estimator fit
     for ix, x in enumerate(vGrid):
         mWx = pt.CalcW4DrivingForce(mW, x)
-        mCgTraj, nCgDim = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes)
+        mCgTraj, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes)
         for iSeq, seqLen in enumerate(vSeqSize):
             seqEpr, (vSeqs1, vProbOfSeq1, vSeqs2, vProbOfSeq2) = infEPR.EstimatePluginM(mCgTraj[:, 0], int(seqLen), gamma=gamma)
             score = TAU(vSeqs1, vProbOfSeq1, vSeqs2, vProbOfSeq2)
@@ -231,7 +231,7 @@ if scgFlag:
     vEPRscg = np.zeros((len(vGrid),)) # Hold the plugin estimator fit
     for ix, x in enumerate(vGrid):
         mWx = pt.CalcW4DrivingForce(mW, x)
-        mCgTraj, nCgDim = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes, semiCG=True)
+        mCgTraj, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes, semiCG=True)
         for iSeq, seqLen in enumerate(vSeqSize):
             seqEpr, (vSeqs1, vProbOfSeq1, vSeqs2, vProbOfSeq2) = infEPR.EstimatePluginM(mCgTraj[:, 0], int(seqLen), gamma=gamma)
             score = TAU(vSeqs1, vProbOfSeq1, vSeqs2, vProbOfSeq2)

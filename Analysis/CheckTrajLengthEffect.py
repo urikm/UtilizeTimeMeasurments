@@ -44,15 +44,17 @@ def EvaluateModel(model, Data): # Evaluating as done in 'RunRNeepAnalysis.py'
     return predEntRate, avgValLoss
 
 # %% Define parameters
-modelCPs = ['model_forceIdx0seqSize32.pt', 'model_forceIdx1seqSize32.pt', 'model_forceIdx15seqSize32.pt', 'model_forceIdx16seqSize32.pt']
+modelCPs = ['model_forceIdx0seqSize32.pt', 'model_forceIdx1seqSize32.pt', 'model_forceIdx15seqSize32.pt'] #, 'model_forceIdx16seqSize32.pt']
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-vTrajLengths = np.array([5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7, 5e7])
+vTrajLengths = np.array([5e3, 1e4, 5e4, 1e5, 5e5, 1e6, 5e6, 1e7])
 mW, nDim, vHiddenStates, timeRes = BaseSystem()
-extForce = [-2., -1.7, 2.47002, 2.77002]
-nIters = 2 # Number of iterations for collecting statistics
-resFig = plt.figure(0)
+extForce = [-2., -1.7, 2.47002] #, 2.77002]
+nIters = 10 # Number of iterations for collecting statistics
+
 
 # %% Load model
+mEffectiveLen = np.zeros([len(extForce), vTrajLengths.shape[0], nIters])
+mEstimatedEPr = np.zeros([len(extForce), vTrajLengths.shape[0], nIters])
 for iForce, modelCP in enumerate(modelCPs):
     model = Neep.RNEEP()
     print('DBG')
@@ -60,29 +62,29 @@ for iForce, modelCP in enumerate(modelCPs):
         model.load_state_dict(torch.load(modelCP, map_location=torch.device('cpu'))['model'])
     else:
         model.load_state_dict(torch.load(modelCP)['model'])
-
     # %% Create CG trajectories in different lengths and calculate the EPR result of model
-    mEffectiveLen = np.zeros([vTrajLengths.shape[0], nIters])
-    mEstimatedEPr = np.zeros([vTrajLengths.shape[0], nIters])
     for iIter in range(nIters):
         for iLen, len in enumerate(vTrajLengths):
             mWx = pt.CalcW4DrivingForce(mW, extForce[iForce])
-            mCgTrajectory, nCgDim = pt.CreateCoarseGrainedTraj(nDim, int(len), mWx, vHiddenStates, timeRes)
-            sigmaDotKld, T, _, _, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory, nCgDim)
-            mEffectiveLen[iLen, iIter] = mCgTrajectory.shape[0]
+            mCgTrajectory, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, int(len), mWx, vHiddenStates, timeRes)
+            sigmaDotKld, T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory, nCgDim, vHiddenStates)
+            mEffectiveLen[iForce, iLen, iIter] = mCgTrajectory.shape[0]
             # print('Traj length: ' + str(mEffectiveLen[iLen]) + ' | T: ' + str(T))
             predEntRate, avgValLoss = EvaluateModel(model, mCgTrajectory)
-            mEstimatedEPr[iLen, iIter] = predEntRate / T
-            print('Traj length: ' + str(mEffectiveLen[iLen, iIter]) + ' | EPR: ' + str(mEstimatedEPr[iLen, iIter]))
-
+            mEstimatedEPr[iForce, iLen, iIter] = predEntRate / T / sigmaDotKld # normalized
+            #print('Traj length: ' + str(mEffectiveLen[iForce, iLen, iIter]) + ' | EPR: ' + str(mEstimatedEPr[iForce, iLen, iIter]))
+    print('Ended Iteration ' + str(iIter) + ' from total of ' + str(nIters) + 'iteration')
 # %% Plot analysis
-    plt.errorbar(mEffectiveLen.mean(axis=1), mEstimatedEPr.mean(axis=1), xerr=mEffectiveLen.std(axis=1)/2, yerr=mEstimatedEPr.std(axis=1)/2, fmt=':o', label='x='+str(extForce[iForce]))
+
+resFig = plt.figure(0)
+for iForce, _ in enumerate(modelCPs):
+    plt.errorbar(mEffectiveLen[iForce].mean(axis=1), mEstimatedEPr[iForce].mean(axis=1)/mEstimatedEPr[iForce].mean(axis=1)[-1], xerr=mEffectiveLen[iForce].std(axis=1)/2, yerr=mEstimatedEPr[iForce].std(axis=1)/2, fmt=':o', label='x='+str(extForce[iForce]))
 
 plt.xscale('log')
-plt.xlabel('Effective trajectory length[jumps]')
-plt.ylabel('Entropy Production rate[per jump]')
-plt.title('EPR vs Trajectory length')
-plt.legend()
+plt.xlabel('Effective trajectory length [jumps]', fontsize='x-large')
+plt.ylabel('Normalized EPR [per jump]', fontsize='x-large')
+# plt.title('EPR vs Trajectory length')
+plt.legend(prop={'size': 10})
 plt.show()
-resFig.set_size_inches((16, 16))
+resFig.set_size_inches((8, 8))
 resFig.savefig(f'PlotTrajLengthAnalysis.svg')
