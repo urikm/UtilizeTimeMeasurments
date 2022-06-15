@@ -268,10 +268,10 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     sigmaDotAff /= T
 
     # Calculate WTD part
-    maxProb = 0.3
+    maxProb = 0.45
     nPoints = 100
     vGridDest = np.linspace(0, maxProb, nPoints)  # np.linspace(0, 0.25, 100)  #
-    bw = (maxProb / nPoints) * 1.8 # 0.0043 # less than grid resolution * 2
+    bw = (maxProb / nPoints) * 1.9 # 0.0043 # less than grid resolution * 2
     kde = KD(bandwidth=bw)
     sigmaDotWtd = 0
     countWtd = 0
@@ -283,7 +283,7 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
                 if (jState in vHiddenStates) & (iState != kState):
-                    if mWtd[countWtd] != []:
+                    if mWtd[countWtd] != [] and mWtd[countWtd].size > 1000:  # second condition assures fit only when enough data
                         kde.fit(mWtd[countWtd][:, None])
                         ddiHk = np.exp(kde.score_samples(vGridDest[:, None]))
                         pDdiHk = ddiHk / np.sum(ddiHk)
