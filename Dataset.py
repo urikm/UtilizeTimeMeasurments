@@ -117,7 +117,7 @@ class CGTrajectoryDataSet(Dataset):
         # Create Coarse-Grained trajectory
         mWx = pt.CalcW4DrivingForce(mW, self.extForce)
         dataSet, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, lenTrajFull, mWx, vHiddenStates, timeRes, semiCG=semiCG)
-        kldEstimator, T, _, _ = pt.CalcKLDPartialEntropyProdRate(dataSet, nCgDim, vHiddenStates)
+        kldEstimator, T, _, _ = pt.CalcKLDPartialEntropyProdRate(dataSet, vHiddenStates)
 
         dataSet = torch.from_numpy(dataSet[:, 0]).float()
         dataSet = torch.utils.data.TensorDataset(dataSet)
@@ -206,7 +206,7 @@ class CGTrajectoryDataSet(Dataset):
 # def CalcDualRateMat(mW,mPartTraj,nCgDim):
 #     mWdual = np.copy(mW)
 #     # Find steady state
-#     _ , _ , _ , _ ,vPss = EstimateTrajParams(nCgDim,mPartTraj)
+#     _ , _ , _ , _ ,vPss = EstimateTrajParams(mPartTraj)
 #     # Create Dual rate matrix
 #     mWdual = mWdual.transpose()
 #     mWdual[0,1] *= vPss[0]/vPss[1]

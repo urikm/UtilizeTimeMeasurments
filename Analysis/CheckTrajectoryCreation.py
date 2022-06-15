@@ -56,7 +56,7 @@ for iIter in range(nIters):
     tic = time.time()
     mTraj, _ = CreateTrajectory(nDim, nTrajLength, [0], mW)
     toc = time.time()
-    _, _, _, mWest, _ = EstimateTrajParams(nDim, mTraj)
+    _, _, _, mWest, _ = EstimateTrajParams(mTraj)
     vErrStr[iIter] = np.linalg.norm(mW-mWest)
     vTimeStr[iIter] = toc-tic
 
@@ -64,7 +64,7 @@ for iIter in range(nIters):
     tic = time.time()
     mTraj, _ = CreateTrajectory(nDim, nTrajLength, [0], mW, True)
     toc = time.time()
-    _, _, _, mWest, _ = EstimateTrajParams(nDim, mTraj)
+    _, _, _, mWest, _ = EstimateTrajParams(mTraj)
     vErrMc[iIter] = np.linalg.norm(mW-mWest)
     vTimeMc[iIter] = toc-tic
 
@@ -72,7 +72,7 @@ for iIter in range(nIters):
     tic = time.time()
     mTraj = AggregateTrajectory(mW, nDim, timeRes, int(4096*128), nSeq=int(4096*128))
     toc = time.time()
-    _, _, _, mWest, _ = EstimateTrajParams(nDim, mTraj)
+    _, _, _, mWest, _ = EstimateTrajParams(mTraj)
     vErrMcB[iIter] = np.linalg.norm(mW-mWest)
     vTimeMcB[iIter] = toc-tic
     print('Finished Iter #'+str(iIter))

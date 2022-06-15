@@ -122,11 +122,11 @@ def FitFunc(x, b, c, g):
     return b - c*(np.log(x)/x**g)
 
 def SemiAnalyticalKLD(vTraj, mW):
-    # TODO : implemented by demand
+    # TODO : implement by demand
     return True
 
 if __name__ == '__main__':
-    nTimeStamps=1e7
+    nTimeStamps = 1e7
     x = 0.
     trainDataSet, nCgDim = CreateGilisTrajectory(nTimeStamps=nTimeStamps, x=x)
     mCgTrajectory = trainDataSet[:, 0]

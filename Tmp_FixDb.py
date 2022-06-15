@@ -41,7 +41,7 @@ for idx,x in enumerate(vX):
         vP0 = vP0/sum(vP0)
         mCgTrajectory = dDataTraj.pop('vStates')
         mCgTrajectory = np.array([mCgTrajectory,dDataTraj.pop('vTimeStamps')]).T
-        sigmaDotKld, T, sigmaDotAff, sigmaWtd = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory,nCgDim, vHiddenStates)
+        sigmaDotKld, T, sigmaDotAff, sigmaWtd = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates)
         dDataTraj['vStates'] = mCgTrajectory[:,0]
         dDataTraj['vTimeStamps'] = mCgTrajectory[:,1]
         dDataTraj['kldBound'] = sigmaDotKld

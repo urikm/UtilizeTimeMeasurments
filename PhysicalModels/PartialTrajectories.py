@@ -186,10 +186,10 @@ def RemapStates(mCgTrajectory, hidState, maxAddedStates=1000):
 
 
 # %% Estimate 2nd order statistics of the trajectory (i->j->k transitions)
-def EstimateTrajParams2ndOrder(nDim, mTrajectory, vHiddenStates, states2Omit=[]):
+def EstimateTrajParams2ndOrder(mTrajectory, vHiddenStates, states2Omit=[]):
     vInitStates = np.unique(mTrajectory[:, 0])
     vInitStates, dMap = MapStates2Indices(vInitStates, states2Omit=states2Omit)
-    nDim = nDim - len(states2Omit)
+    nDim = vInitStates.size
 
     mP2ndOrderTransitions = np.zeros((nDim,) * 3)  # all the Pijk with i!=k
     mWtd = []
@@ -216,15 +216,15 @@ def EstimateTrajParams2ndOrder(nDim, mTrajectory, vHiddenStates, states2Omit=[])
 
 
 # Calculate KLD entropy production rate as explained in 2019  paper
-def CalcKLDPartialEntropyProdRate(mCgTrajectory, nDim, vHiddenStates, states2Omit=[]):
+def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     # Extract the possible states and map them to indices of rate matrix
     vStates = np.unique(mCgTrajectory[:, 0])
     vStates, dMap = MapStates2Indices(vStates, states2Omit=states2Omit)
     nStates = len(vStates)
 
     # Estimate 1st and 2nd order statistics from hidden trajectory
-    mIndStates, mWaitTimes, vEstLambdas, mWest, vStSt = EstimateTrajParams(nDim, mCgTrajectory, states2Omit=states2Omit)
-    mP2ndOrdTrans, mWtd = EstimateTrajParams2ndOrder(nDim, mCgTrajectory, vHiddenStates, states2Omit=states2Omit)
+    mIndStates, mWaitTimes, vEstLambdas, mWest, vStSt = EstimateTrajParams(mCgTrajectory, states2Omit=states2Omit)
+    mP2ndOrdTrans, mWtd = EstimateTrajParams2ndOrder(mCgTrajectory, vHiddenStates, states2Omit=states2Omit)
 
     # Calculate steady state distribution occurence of each state(per jump)
     vR = np.zeros(nStates)
@@ -268,10 +268,10 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, nDim, vHiddenStates, states2Omi
     sigmaDotAff /= T
 
     # Calculate WTD part
-    maxProb = 0.5
+    maxProb = 0.3
     nPoints = 100
     vGridDest = np.linspace(0, maxProb, nPoints)  # np.linspace(0, 0.25, 100)  #
-    bw = (maxProb / nPoints) * 2.4 # 0.0043 # less than grid resolution * 2
+    bw = (maxProb / nPoints) * 1.8 # 0.0043 # less than grid resolution * 2
     kde = KD(bandwidth=bw)
     sigmaDotWtd = 0
     countWtd = 0

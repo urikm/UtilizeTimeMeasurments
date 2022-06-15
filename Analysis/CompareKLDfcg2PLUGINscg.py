@@ -36,7 +36,7 @@ for ix, x in enumerate(vGrid):
     else:
         mWx = pt.CalcW4DrivingForce(mW, x)
     mCgTraj, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes, semiCG=False)
-    vEPRfcg[ix], T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTraj, nCgDim, vHiddenStates)
+    vEPRfcg[ix], T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTraj, vHiddenStates)
     vEPRfcg[ix] = vEPRfcg[ix]*T
     # Calc full EPR
     vP0 = np.array([0.25, 0.25, 0.25, 0.25])

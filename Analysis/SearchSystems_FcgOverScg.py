@@ -12,9 +12,9 @@ import Utility.FindPluginInfEPR as infEPR
 import Utility.Params as pr
 
 # %% Init parameters
-nRuns = 20
+nRuns = 50
 fullTrajLength = int(1e7)
-gamma = 1e-3
+gamma = 1e-4
 maxSeq = 9
 nDim = 4
 vHiddenStates = np.array([2,3])
@@ -25,8 +25,8 @@ for iSystem in range(nRuns):
     # Randomize system
     vP0 = np.array([0.25, 0.25, 0.25, 0.25])
     # mW, nDim, vHiddenStates, timeRes = pr.GenRateMat(nDim, 30)
-    mW, nDim, vHiddenStates, timeRes = pr.HiddenControl(hid2to3=np.random.uniform(15, size=1)[0],
-                                                     hid3to2=np.random.uniform(15, size=1)[0],
+    mW, nDim, vHiddenStates, timeRes = pr.HiddenControl(hid2to3=np.random.uniform(30, size=1)[0],
+                                                     hid3to2=np.random.uniform(30, size=1)[0],
                                                      rate0to2=np.random.uniform(30, size=1)[0],
                                                      rate2to0=np.random.uniform(30, size=1)[0])
     # mW, nDim, vHiddenStates, timeRes = pr.HiddenControl(hid2to3=np.random.uniform(15 - 5, 15 + 5, size=1)[0],
@@ -43,11 +43,11 @@ for iSystem in range(nRuns):
     mCgTrajF, nCgDimF, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, fullTrajLength, mW, vHiddenStates, timeRes, semiCG=False)
     mCgTrajS, nCgDimS, vHiddenStates2 = pt.CreateCoarseGrainedTraj(nDim, fullTrajLength, mW, vHiddenStates, timeRes, semiCG=True)
     vStates = np.unique(mCgTrajS[:, 0])
-    states2Omit = vStates[vStates > 1005]
+    states2Omit = vStates[vStates > 1006]
     # Calculate EPR
     try:
-        EPRfcg, T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajF, nCgDimF, vHiddenStates)
-        EPRscg, Tsemi, _, _  = pt.CalcKLDPartialEntropyProdRate(mCgTrajS, nCgDimS, vHiddenStates2, states2Omit=states2Omit) #infEPR.EstimatePluginInf(mCgTrajS[:, 0], maxSeq=maxSeq, gamma=gamma)
+        EPRfcg, T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajF, vHiddenStates)
+        EPRscg, Tsemi, _, _  = pt.CalcKLDPartialEntropyProdRate(mCgTrajS, vHiddenStates2, states2Omit=states2Omit) #infEPR.EstimatePluginInf(mCgTrajS[:, 0], maxSeq=maxSeq, gamma=gamma)
         # Tsemi = np.mean(mCgTrajS[:, 1])
         # EPRscg = EPRscg/Tsemi  # Convert to  per time
         EPRful = ut.EntropyRateCalculation(nDim, mW, vPn)

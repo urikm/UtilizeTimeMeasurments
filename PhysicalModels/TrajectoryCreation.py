@@ -82,11 +82,11 @@ def CreateTrajectory(nDim, nTimeStamps, initState, *args):
 
 
 # %% Estimate parameters of trajectory(or part of it)
-def EstimateTrajParams(nDim, mTraj, states2Omit=[]):
+def EstimateTrajParams(mTraj, states2Omit=[]):
     # Load mapping from states to indices
     vStates = np.unique(mTraj[:, 0])
     vStates, dMap = MapStates2Indices(vStates, states2Omit=states2Omit)
-    nDim = nDim-len(states2Omit)
+    nDim = vStates.size
 
     # Inits
     mIndStates = []
@@ -124,8 +124,8 @@ def EstimateTrajParams(nDim, mTraj, states2Omit=[]):
 
 
 # %% Estimate Entropy rate from Partial(long enough) trajectory in steady-state
-def EntropyRateEstimation(nDim, mPartTraj, states2Omit=[]):
-    mIndStates, mWaitTimes, vEstLambdas, mWest, vEstPi = EstimateTrajParams(nDim, mPartTraj, states2Omit=states2Omit)
+def EntropyRateEstimation(mPartTraj, states2Omit=[]):
+    mIndStates, mWaitTimes, vEstLambdas, mWest, vEstPi = EstimateTrajParams(mPartTraj, states2Omit=states2Omit)
     
     # Init entropy
     entropy = np.log(vEstPi[int(mPartTraj[0, 0])]/vEstPi[int(mPartTraj[-1:, 0])])
@@ -168,7 +168,7 @@ def PlotSingleTraj(mTrajectory,mPartTraj,mW,mWaitTimes,vMeSteadyState,nDim):
     vSample4Integration = np.logspace(3, np.log10(nFullTraj),num=int(np.log10(nFullTraj))+1)
     vError = np.zeros(np.shape(vSample4Integration))
     for iRun in range(np.size(vSample4Integration)):
-        estEntropyRate = EntropyRateEstimation(nDim, mTrajectory[:int(vSample4Integration[iRun]), :])
+        estEntropyRate = EntropyRateEstimation(mTrajectory[:int(vSample4Integration[iRun]), :])
         vError[iRun] = abs(gtEntropyRate-estEntropyRate)/gtEntropyRate*100
     fig0, ax0 = plt.subplots()
     ax0.plot(vSample4Integration, vError)
@@ -219,7 +219,7 @@ if __name__ == '__main__':
     mPartTraj = mTrajectory[startInd:endInd, :]
     
     # Estimate Parameters from partial trajectory
-    mIndStates, mWaitTimes, vEstLambdas, mWest, vSimSteadyState = EstimateTrajParams(nDim, mPartTraj)
+    mIndStates, mWaitTimes, vEstLambdas, mWest, vSimSteadyState = EstimateTrajParams(mPartTraj)
 
     # Check if simulated steady state match the steady state which deriven from MasterEquation
     vP0 = np.zeros(nDim)
@@ -239,7 +239,7 @@ if __name__ == '__main__':
         
     # Entropy rate analysis
     gtEntropyRate = EntropyRateCalculation(nDim, mW, vMeSteadyState)
-    estEntropyRate = EntropyRateEstimation(nDim, mPartTraj)
+    estEntropyRate = EntropyRateEstimation(mPartTraj)
     print('Ground-Truth(Known rate matrix and steady state) Entropy rate: ', gtEntropyRate)
     print('Estimated(No a-priori knowledge) Entropy rate: ', estEntropyRate)
     print('Relative Error: ', abs(gtEntropyRate-estEntropyRate)/gtEntropyRate*100, '%')

@@ -67,7 +67,7 @@ for iForce, modelCP in enumerate(modelCPs):
         for iLen, len in enumerate(vTrajLengths):
             mWx = pt.CalcW4DrivingForce(mW, extForce[iForce])
             mCgTrajectory, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, int(len), mWx, vHiddenStates, timeRes)
-            sigmaDotKld, T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory, nCgDim, vHiddenStates)
+            sigmaDotKld, T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates)
             mEffectiveLen[iForce, iLen, iIter] = mCgTrajectory.shape[0]
             # print('Traj length: ' + str(mEffectiveLen[iLen]) + ' | T: ' + str(T))
             predEntRate, avgValLoss = EvaluateModel(model, mCgTrajectory)
