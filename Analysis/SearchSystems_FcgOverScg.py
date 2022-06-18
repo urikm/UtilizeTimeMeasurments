@@ -43,7 +43,7 @@ for iSystem in range(nRuns):
     mCgTrajF, nCgDimF, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, fullTrajLength, mW, vHiddenStates, timeRes, semiCG=False)
     mCgTrajS, nCgDimS, vHiddenStates2 = pt.CreateCoarseGrainedTraj(nDim, fullTrajLength, mW, vHiddenStates, timeRes, semiCG=True)
     vStates = np.unique(mCgTrajS[:, 0])
-    states2Omit = vStates[vStates > 1006]
+    states2Omit = []
     # Calculate EPR
     try:
         EPRfcg, T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajF, vHiddenStates)

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 # matplotlib.use('Qt5Agg')
 
-aa = torch.load('..\Results\dResults_4k_1e-4.pt')  #torch.load('..\Results\dResults_4k_gamma_1e-3.pt')  #torch.load('..\Results\dResults_40k')  #torch.load('..\Results\dResults_g0_40k')  #
+aa = torch.load('dResults.pt')  #torch.load('..\Results\dResults_4k_gamma_1e-3.pt')  #torch.load('..\Results\dResults_40k')  #torch.load('..\Results\dResults_g0_40k')  #
 
 fEPR = np.array(aa['F-EPR'])
 sEPR = np.array(aa['S-EPR'])

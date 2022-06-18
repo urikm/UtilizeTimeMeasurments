@@ -18,6 +18,7 @@ from sklearn.neighbors import KernelDensity as KD
 from sklearn.model_selection import GridSearchCV, LeaveOneOut
 
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
+
 from PhysicalModels.TrajectoryCreation import CreateTrajectory, EstimateTrajParams
 from PhysicalModels.UtilityTraj import CalcSteadyStateCurrent, EntropyRateCalculation, MapStates2Indices
 from numba import njit
@@ -270,21 +271,23 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     sigmaDotAff /= T
 
     # Calculate WTD part
-    maxProb = 0.17
+    maxWTD = mCgTrajectory[:, 1].mean() + 2 * mCgTrajectory[:, 1].std()  # np.percentile(mCgTrajectory[:, 1], 90)  #
     nPoints = 51
 
-    vGridDest = np.linspace(0, maxProb, nPoints)  # np.linspace(0, 0.25, 100)  #
+    vGridDest = np.linspace(0, maxWTD, nPoints)  # np.linspace(0, 0.25, 100)  #
     # Prepare several KDE as function of given data
-    bw1 = (maxProb / nPoints) * 2.2
-    bw2 = (maxProb / nPoints) * 5
-    bw3 = (maxProb / nPoints) * 20  # 0.0043 # less than grid resolution * 2
+    bw1 = (maxWTD / nPoints) * 1.5
+    bw2 = (maxWTD / nPoints) * 2.8
+    bw3 = (maxWTD / nPoints) * 5  # 0.0043 # less than grid resolution * 2
+    # bw4 = (maxWTD / nPoints) * 15
     kde1 = KD(bandwidth=bw1)
     kde2 = KD(bandwidth=bw2)
     kde3 = KD(bandwidth=bw3)
+    # kde4 = KD(bandwidth=bw4)
 
     sigmaDotWtd = 0
     countWtd = 0
-    eps = 1e-2  # used for numerical stability of WTD calculation
+    eps = 1e-9  # used for numerical stability of WTD calculation
     mWtdBuffer = eps + np.zeros((nStates, nStates, nStates, len(vGridDest)))
     # Accumulate the pdf of each relevant i->j->k
     for iState in vStates:
@@ -293,14 +296,16 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
                 if (jState in vHiddenStates) & (iState != kState):
-                    if mWtd[countWtd] != [] and mWtd[countWtd].size > 5:
+                    if mWtd[countWtd] != [] and mWtd[countWtd].size > 500:
                         # Choose different kernal - depends on the statistics size
-                        if mWtd[countWtd].size > 1e3:  # second condition assures fit only when enough data
+                        if mWtd[countWtd].size > 1e5:  # second condition assures fit only when enough data
                             kde = kde1
-                        elif mWtd[countWtd].size > 130:
+                        elif mWtd[countWtd].size > 1e4:
                             kde = kde2
-                        else:
+                        else:  # elif mWtd[countWtd].size > 1e3:
                             kde = kde3
+                        # else:
+                        #     kde = kde4
                         kde.fit(mWtd[countWtd][:, None])
                         ddiHk = np.exp(kde.score_samples(vGridDest[:, None]))
                         pDdiHk = ddiHk / np.sum(ddiHk)
