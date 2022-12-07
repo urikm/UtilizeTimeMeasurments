@@ -27,6 +27,7 @@ else:
     vGrid = np.array([0, 1, 2, 3, 5])  #np.array([10,30,50,150]) #np.array([0,10,22,30,50,60,100,150])  # np.array([10,20,22,30,40,50,60,70]) # not checkHidden: np.array([0, 0.005, 0.05, 0.5, 5])
 vEPRfcg = np.zeros((len(vGrid),))
 mEPRscg = np.zeros((len(vGrid), semiCGruns))
+mEPscg2 = np.zeros((len(vGrid), semiCGruns))
 vEPRful = np.zeros((len(vGrid),))
 
 # %% Calculate KLD for FCG with time data
@@ -53,14 +54,21 @@ for ix, x in enumerate(vGrid):
     for iRun in range(semiCGruns):
         mCgTraj, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, naiveTrajLen, mWx, vHiddenStates, timeRes, semiCG=True)
         mEPRscg[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], maxSeq=maxSeq, gamma=gamma)
+        D3, _ = infEPR.EstimatePluginM(mCgTraj[:, 0], 3, gamma=gamma)
+        D2, _ = infEPR.EstimatePluginM(mCgTraj[:, 0], 2, gamma=gamma)
+        mEPscg2[ix, iRun] = D3 - D2
 
 # %% Plot
 figT2 = plt.figure()
 plt.plot(np.flip(-vGrid), np.flip(vEPRfcg), label='FullCGwTime')
 plt.errorbar(np.flip(-vGrid), np.flip(mEPRscg.mean(1)), yerr=np.flip(mEPRscg.std(1)), label='SemiCGwoTime')
+plt.errorbar(np.flip(-vGrid), np.flip(mEPscg2.mean(1)), yerr=np.flip(mEPscg2.std(1)), label='d3')
 #plt.plot(np.flip(-vGrid), np.flip(vEPRful), label='FullEPR')
 plt.title('Gilis-EPR')
 plt.legend()
 plt.show()
 #figT2.set_size_inches((16, 16))
 #figT2.savefig(f'CompareKLDnPLGIN.png')
+
+
+

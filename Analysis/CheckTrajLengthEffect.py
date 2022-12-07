@@ -13,23 +13,26 @@ import torch
 import PhysicalModels.PartialTrajectories as pt
 from Utility.Params import BaseSystem
 from LearningModels import Neep
+from Dataset import CGTrajectoryDataSet
 from RNeepSampler import CartesianSeqSampler as CSS
 
-def EvaluateModel(model, Data): # Evaluating as done in 'RunRNeepAnalysis.py'
+def EvaluateModel(model, length, x): # Evaluating as done in 'RunRNeepAnalysis.py'
     # TODO : make script more flexible
-    nTrainIterPerEpoch = 5000
-    batch_size = 4096
-    iSeqSize = 32
-    validDataSet = torch.from_numpy(Data[:, 0])
-    vValidL = np.kron(0.5, np.ones(validDataSet.size()))
-    vValidL = torch.from_numpy(vValidL).type(torch.FloatTensor)
-    validDataSet = torch.utils.data.TensorDataset(validDataSet, vValidL)
-    validLoader =  torch.utils.data.DataLoader(validDataSet, sampler = CSS(1,validDataSet.tensors[0].size()[0],iSeqSize,batch_size,nTrainIterPerEpoch,train=False), pin_memory=False)
+    #nTrainIterPerEpoch = 5000
+    batch_size = 128
+    iSeqSize = 12
+    #validDataSet = torch.from_numpy(Data[:, 0])
+    #vValidL = np.kron(0.5, np.ones(validDataSet.size()))
+    #vValidL = torch.from_numpy(vValidL).type(torch.FloatTensor)
+    #validDataSet = torch.utils.data.TensorDataset(validDataSet, vValidL)
+    validDataSet = CGTrajectoryDataSet(seqLen=iSeqSize, batchSize=batch_size, lenTrajFull=length,
+                                       extForce=x, mode='valid')
+    validLoader = torch.utils.data.DataLoader(validDataSet)
 
     avgValLosses = 0
     avgValScores = []
     with torch.no_grad():
-        for x_val, y_val in validLoader:
+        for x_val, _, _ in validLoader:
             x_val = x_val.squeeze().long().to(device)
             model.eval()
             entropy_val = model(x_val)
@@ -40,7 +43,7 @@ def EvaluateModel(model, Data): # Evaluating as done in 'RunRNeepAnalysis.py'
 
         avgValScores = torch.cat(avgValScores).squeeze()
         predEntRate = torch.mean(avgValScores) / (iSeqSize - 1)
-        avgValLoss = avgValLosses / validLoader.sampler.size
+        avgValLoss = avgValLosses/validLoader.__len__()
     return predEntRate, avgValLoss
 
 # %% Define parameters
@@ -70,7 +73,7 @@ for iForce, modelCP in enumerate(modelCPs):
             sigmaDotKld, T, _, _ = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates)
             mEffectiveLen[iForce, iLen, iIter] = mCgTrajectory.shape[0]
             # print('Traj length: ' + str(mEffectiveLen[iLen]) + ' | T: ' + str(T))
-            predEntRate, avgValLoss = EvaluateModel(model, mCgTrajectory)
+            predEntRate, avgValLoss = EvaluateModel(model, int(len), extForce[iForce])
             mEstimatedEPr[iForce, iLen, iIter] = predEntRate / T / sigmaDotKld # normalized
             #print('Traj length: ' + str(mEffectiveLen[iForce, iLen, iIter]) + ' | EPR: ' + str(mEstimatedEPr[iForce, iLen, iIter]))
     print('Ended Iteration ' + str(iIter) + ' from total of ' + str(nIters) + 'iteration')

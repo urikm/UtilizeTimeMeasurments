@@ -37,7 +37,7 @@ def CreateTrajectory(nDim, nTimeStamps, initState, *args):
         mcFlag = args[1]
 
     mDiag = np.multiply(np.eye(nDim), mW)  #For competability with jit
-    mP = (mW-mDiag)/np.abs(np.dot(mDiag, np.ones(4)))  # calculate discrete PDF for states jumps
+    mP = (mW-mDiag)/np.abs(np.dot(mDiag, np.ones(nDim)))  # calculate discrete PDF for states jumps
     mTrajectory = np.zeros((nTimeStamps, 2))
 
     currState = initState

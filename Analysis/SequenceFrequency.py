@@ -10,6 +10,7 @@ import pickle
 
 import PhysicalModels.MasterEqSim as mstr
 import PhysicalModels.PartialTrajectories as pt
+import PhysicalModels.ratchet as rt
 import Utility.FindPluginInfEPR as infEPR
 from Utility.Params import ExtForcesGrid, BaseSystem
 
@@ -183,7 +184,7 @@ if frFlag:
     mEprFr = np.zeros((len(vSeqSize), len(vPots)))
     vEPRfr = np.zeros((len(vPots),))
     for ix, x in enumerate(vPots):
-        mCgTraj = infEPR.CreateNEEPTrajectory(nTimeStamps=naiveTrajLen, x=x, fullCg=False)
+        mCgTraj = rt.CreateNEEPTrajectory(nTimeStamps=naiveTrajLen, x=x, fullCg=False)
         for iSeq, seqLen in enumerate(vSeqSize):
             seqEpr, (vSeqs1, vProbOfSeq1, vSeqs2, vProbOfSeq2) = infEPR.EstimatePluginM(mCgTraj.T, int(seqLen), gamma=gamma)
             score = TAU(vSeqs1, vProbOfSeq1, vSeqs2, vProbOfSeq2)

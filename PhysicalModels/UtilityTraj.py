@@ -77,3 +77,5 @@ def MapStates2Indices(vStates, states2Omit=[]):
     for ind in range(len(vEffStates)):
         dMap[vEffStates[ind]] = ind
     return vEffStates, dMap
+
+

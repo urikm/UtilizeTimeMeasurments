@@ -33,7 +33,7 @@ vEPRful = np.zeros((len(vGrid),))
 # %% Calculate KLD for FCG with time data
 for ix, x in enumerate(vGrid):
     if checkHidden:
-        mWx, nDim, vHiddenStates, timeRes = HiddenControl(hidBond=0, rate0to2=x)
+        mWx, nDim, vHiddenStates, timeRes = HiddenControl(hid2to3=0, hid3to2=0, rate0to2=x)
     else:
         mWx = pt.CalcW4DrivingForce(mW, x)
     vP0 = np.array([0.25, 0.25, 0.25, 0.25])

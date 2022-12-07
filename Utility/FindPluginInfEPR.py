@@ -31,23 +31,7 @@ def CreateGilisTrajectory(nTimeStamps=5e6, x=0.):
     return mCgTrajectory, nCgDim
 
 
-def CreateNEEPTrajectory(nTimeStamps=5e4, x=0., fullCg=False):
-    nTimeStamps = int(nTimeStamps)
-    data = rt.simulation(1, nTimeStamps, x, seed=0)
-    mCgTrajectory = data[0] % 3
-    if fullCg:
-        trainBuffer = np.zeros(mCgTrajectory.size)
-        for iStep in range(mCgTrajectory.size):
-        # now decimate train and test set
-            # handle special case of first element
-            if iStep == 0:
-                trainBuffer[iStep] = 1
-                continue
-            # create mask for train set
-            if mCgTrajectory[iStep-1] != mCgTrajectory[iStep]:
-                trainBuffer[iStep] = 1
-        mCgTrajectory = mCgTrajectory[trainBuffer==1]
-    return mCgTrajectory
+
 
 
 # %% Estimate \hat{d}_m - plugin estimator with sequence of m
@@ -130,7 +114,7 @@ if __name__ == '__main__':
     x = 0.
     trainDataSet, nCgDim = CreateGilisTrajectory(nTimeStamps=nTimeStamps, x=x)
     mCgTrajectory = trainDataSet[:, 0]
-    #mCgTrajectory = CreateNEEPTrajectory(nTimeStamps=nTimeStamps, x=x, fullCg=True)
+    #mCgTrajectory = rt.CreateNEEPTrajectory(nTimeStamps=nTimeStamps, x=x, fullCg=True)
     # vMgrid = np.array([2,3,5,7,9])
     kldInf = EstimatePluginInf(mCgTrajectory)
     eprNeepAnalytic = rt.ep_per_step(x)

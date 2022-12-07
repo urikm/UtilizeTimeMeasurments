@@ -103,6 +103,7 @@ def CalcStallingSteadyState(mW):
 
 
 # Calculate stalling W matrix when external force(x) applied on control states
+# TODO : change x -> -x and vise verca due to my confusion with previous definitions
 def CalcW4DrivingForce(mW, x, control=[0,1]):
     # assume exponential force over the rate between 0<->1
     mWx = np.array(mW)
@@ -162,9 +163,8 @@ def CoarseGrainTrajectory(mTrajectory, nFullDim, vHiddenStates, semiCG=False, re
 
 # Remap semi CG trajectories to system with, possibly, infinite states. A new state for sequence size of hidden jumps
 @njit
-def RemapStates(mCgTrajectory, hidState, maxAddedStates=1000):
+def RemapStates(mCgTrajectory, hidState, maxAddedStates=1000, baseState=1000):
     nJumps = mCgTrajectory.shape[0]
-    baseState = 1000
     vNewHidden = np.zeros(maxAddedStates)
     countAdded = 0
 
@@ -271,14 +271,14 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     sigmaDotAff /= T
 
     # Calculate WTD part
-    maxWTD = mCgTrajectory[:, 1].mean() + 2 * mCgTrajectory[:, 1].std()  # np.percentile(mCgTrajectory[:, 1], 90)  #
+    maxWTD = np.percentile(mCgTrajectory[:, 1], 99)  #mCgTrajectory[:, 1].mean() + 2 * mCgTrajectory[:, 1].std()
     nPoints = 51
 
     vGridDest = np.linspace(0, maxWTD, nPoints)  # np.linspace(0, 0.25, 100)  #
     # Prepare several KDE as function of given data
-    bw1 = (maxWTD / nPoints) * 1.5
-    bw2 = (maxWTD / nPoints) * 2.8
-    bw3 = (maxWTD / nPoints) * 5  # 0.0043 # less than grid resolution * 2
+    bw1 = (maxWTD / nPoints) * 0.8
+    bw2 = (maxWTD / nPoints) * 1.5
+    bw3 = (maxWTD / nPoints) * 1.7  # 0.0043 # less than grid resolution * 2
     # bw4 = (maxWTD / nPoints) * 15
     kde1 = KD(bandwidth=bw1)
     kde2 = KD(bandwidth=bw2)
@@ -296,11 +296,11 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
                 if (jState in vHiddenStates) & (iState != kState):
-                    if mWtd[countWtd] != [] and mWtd[countWtd].size > 500:
+                    if mWtd[countWtd] != [] and mWtd[countWtd].size > 200:
                         # Choose different kernal - depends on the statistics size
                         if mWtd[countWtd].size > 1e5:  # second condition assures fit only when enough data
                             kde = kde1
-                        elif mWtd[countWtd].size > 1e4:
+                        elif mWtd[countWtd].size > 5e3:
                             kde = kde2
                         else:  # elif mWtd[countWtd].size > 1e3:
                             kde = kde3
@@ -325,7 +325,7 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     sigmaDotKld = sigmaDotAff + sigmaDotWtd
     return sigmaDotKld, T, sigmaDotAff, sigmaDotWtd
 
-
+# TODO : vHiddenStates actually means which states should be hidden. In estimation process it used as the states that defined hidden
 def CreateCoarseGrainedTraj(nDim, nTimeStamps, mW, vHiddenStates, timeRes, semiCG=False, isCG=True, remap=False):
     # randomize init state from the steady-state distribution
     vP0 = np.array([0.25, 0.25, 0.25, 0.25])  # , dtype=np.float32)
@@ -339,7 +339,7 @@ def CreateCoarseGrainedTraj(nDim, nTimeStamps, mW, vHiddenStates, timeRes, semiC
     # Create trajectory
     mTrajectory, mW = CreateTrajectory(nDim, nTimeStamps, initState, mW)  # Run Create Trajectory
     if isCG:
-        mCgTrajectory, nCgDim, vHiddenStates,  nHid = CoarseGrainTrajectory(mTrajectory, nDim, vHiddenStates, semiCG=semiCG, remap=remap)
+        mCgTrajectory, nCgDim, vHiddenStates, nHid = CoarseGrainTrajectory(mTrajectory, nDim, vHiddenStates, semiCG=semiCG, remap=remap)
         vHiddenStates = vHiddenStates[:nHid]  # support for numba compilation
     else:
         mCgTrajectory = mTrajectory

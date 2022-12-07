@@ -1,5 +1,5 @@
 """
-@title : Reproduce KLD estimators for Flatching Ratchet model
+@title : Reproduce KLD estimators for Flatching Ratchet model : TODO - DELETE, obsolete there is a script in "Results"
 
 @author: Uri Kapustin
 """
@@ -29,7 +29,7 @@ vFull = np.zeros(vPotentials.shape)
 vRatio = np.zeros(vPotentials.shape)
 
 for iPot, pot in enumerate(vPotentials):
-    mCgTrajectory = eprinf.CreateNEEPTrajectory(nTimeStamps=nTimeStamps, x=pot, fullCg=False)
+    mCgTrajectory = rt.CreateNEEPTrajectory(nTimeStamps=nTimeStamps, x=pot, fullCg=False)
     print(mCgTrajectory.shape)
     vKldInf[iPot] = eprinf.EstimatePluginInf(mCgTrajectory)
     print('For Potential: '+str(pot)+' we get Inf estimator of: '+str(vKldInf[iPot]))
@@ -38,7 +38,7 @@ for iPot, pot in enumerate(vPotentials):
     vRatio[iPot] = SubsequentRatio(mCgTrajectory)
 # %% Full cg
 for iPot, pot in enumerate(vPotentials):
-    mCgTrajectory = eprinf.CreateNEEPTrajectory(nTimeStamps=int(3*nTimeStamps), x=pot, fullCg=True)
+    mCgTrajectory = rt.CreateNEEPTrajectory(nTimeStamps=int(3*nTimeStamps), x=pot, fullCg=True)
     print(mCgTrajectory.shape)
     vKldInfFullCg[iPot] = eprinf.EstimatePluginInf(mCgTrajectory)
     print('For Potential: '+str(pot)+' we get Inf estimator of: '+str(vKldInfFullCg[iPot]))

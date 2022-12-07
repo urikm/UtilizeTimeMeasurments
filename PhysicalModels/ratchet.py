@@ -1,6 +1,7 @@
 ## Copied from neep github
 import numpy as np
-
+from PhysicalModels.TrajectoryCreation import CreateTrajectory
+import PhysicalModels.PartialTrajectories as pt
 
 def transition_matrix(V, T=1, r=1):
     """Transition matrix of discrete flashing ratchet model.
@@ -11,7 +12,7 @@ def transition_matrix(V, T=1, r=1):
         r : switching rate (default: 1)
 
     Returns:
-        Probability at state s
+        probability matrix
     """
 
     sum0 = np.exp(-V / (2 * T)) + np.exp(-V / T) + r
@@ -39,6 +40,35 @@ def transition_matrix(V, T=1, r=1):
         ]
     )
     return P
+
+####### Uri's addition
+def rate_matrix(V, T=1, r=1):
+    """Rate matrix of discrete flashing ratchet model.
+
+    Args:
+        V : potential value
+        T : Temperature of the heat bath (default: 1)
+        r : switching rate (default: 1)
+
+    Returns:
+        rate matrix (rows are output states and colomns input, opposite from transition matrix)
+    """
+
+    sum0 = np.exp(-V / (2 * T)) + np.exp(-V / T) + r
+    sum1 = np.exp(V / (2 * T)) + np.exp(-V / (2 * T)) + r
+    sum2 = np.exp(V / T) + np.exp(V / (2 * T)) + r
+    sum3 = 2 + r
+    sum4 = 2 + r
+    sum5 = 2 + r
+
+    vSum = np.array([sum0, sum1, sum2, sum3, sum4, sum5])
+    mP = transition_matrix(V, T=T, r=r)
+    mW = mP.T * vSum
+
+    for k in range(6): # 6 is the dimension of states in this FR system
+        mW[k, k] = mW[k, k] - np.sum(mW[:, k])
+    return mW
+#######
 
 
 def simulation(num_trjs, trj_len, V, T=1, r=1, seed=0):
@@ -253,3 +283,42 @@ def p_ss(V, T=1, r=1):
     )
     steady = steady / steady.sum()
     return steady
+
+
+# %% Create Flashing Ratchet CG trajectory  ;   Note: deprecates use of simulation
+def CreateNEEPTrajectory(nTimeStamps=5e4, V=0., fullCg=False, isCG=True, remap=False):
+    nTimeStamps = int(nTimeStamps)
+    nDim = 6
+
+    initState = np.random.choice(nDim, 1, p=p_ss(V)).item()
+    mW = rate_matrix(V)
+
+    mCgTrajectory, _ = CreateTrajectory(nDim, nTimeStamps, initState, mW) # Create FR trajectory
+    vHiddenStates = np.array([])
+    if isCG:
+        mCgTrajectory[:, 0] = mCgTrajectory[:, 0] % 3  # Semi-CG
+
+        if fullCg:
+            trainBuffer = np.zeros(mCgTrajectory[:, 0].size)
+            for iStep in range(mCgTrajectory[:, 0].size):
+            # now decimate train and test set
+                # handle special case of first element
+                if iStep == 0:
+                    trainBuffer[iStep] = 1
+                    continue
+                # create mask for train set
+                if mCgTrajectory[iStep-1, 0] != mCgTrajectory[iStep, 0]:
+                    trainBuffer[iStep] = 1
+            mCgTrajectory = mCgTrajectory[trainBuffer == 1, :]
+
+        vStates = np.unique(mCgTrajectory[:, 0])
+        nDim = vStates.size
+        vHiddenStates = vStates
+        if remap and not fullCg:  # for each state we need to repeat the remap process
+            vHiddenStates = np.array([])
+            for iHid in vStates:
+                mCgTrajectory, nDim, vNewHidden, countAdded = pt.RemapStates(mCgTrajectory, iHid, baseState=int((iHid + 1) * 1000))
+                # Add the new vHiddenStates
+                vHiddenStates = np.concatenate((vHiddenStates, vNewHidden[:countAdded]), axis=0)
+            nDim = np.unique(mCgTrajectory[:, 0]).size
+    return mCgTrajectory, nDim, vHiddenStates

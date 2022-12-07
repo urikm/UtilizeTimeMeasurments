@@ -41,7 +41,7 @@ for iSystem in range(nRuns):
         assert 0, "The Master equation solver doesnt converge for this system - you should look at it"
     # Create Coarse Grained trajectories
     mCgTrajF, nCgDimF, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, fullTrajLength, mW, vHiddenStates, timeRes, semiCG=False)
-    mCgTrajS, nCgDimS, vHiddenStates2 = pt.CreateCoarseGrainedTraj(nDim, fullTrajLength, mW, vHiddenStates, timeRes, semiCG=True)
+    mCgTrajS, nCgDimS, vHiddenStates2 = pt.CreateCoarseGrainedTraj(nDim, fullTrajLength, mW, vHiddenStates, timeRes, semiCG=True, remap=True)
     vStates = np.unique(mCgTrajS[:, 0])
     states2Omit = []
     # Calculate EPR

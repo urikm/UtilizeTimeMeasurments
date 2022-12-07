@@ -1,5 +1,5 @@
 *.pickle
-Results/
+
 .spyproject/
 __pycache__/
 *.filepart
@@ -9,3 +9,7 @@ __pycache__/
 *.pt
 *.svg
 *.mat
+*.xls
+*.xlsx
+*.txt
+*.pdf
