@@ -51,7 +51,7 @@ def parse_args():
                         help='Number of epochs to run')
     parser.add_argument('--seq_list', '-l', default='3,16,32,64,128', type=str,
                         help='Input sequence size to check')
-    parser.add_argument('--ext_forces', '-f', choices=('coarse', 'full', 'nearSt', 'nearSt', 'zoomed', 'extended'), default='coarse',
+    parser.add_argument('--ext_forces', '-f', choices=('coarse', 'full', 'nearSt', 'nearSt', 'zoomed', 'extended', 'RNEEPadd'), default='coarse',
                         help='Define grid of external forces')
     parser.add_argument("--save-path",
                         default=".",type=str,

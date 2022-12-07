@@ -92,6 +92,9 @@ def ExtForcesGrid(chooseGrid, interpRes=5e-3):
         vGrid = np.concatenate((np.arange(-0.75, xSt, 0.3), np.arange(xSt, 2.25, 0.3)))
         vGridInterp = np.concatenate((np.arange(-0.75, xSt, interpRes), np.arange(xSt, 2.25, interpRes)))
         subFolder = 'AnalysisPaper_'
+    elif chooseGrid == 'RNEEPadd': # Also used in the paper
+        vGrid = np.array([xSt-0.1, xSt+0.1])
+        vGridInterp = np.array([xSt-0.1 ,xSt+0.1]) # DONT CARE
     else:
         raise Exception("Wrong grid chosen!")
 
