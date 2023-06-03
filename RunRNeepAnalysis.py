@@ -19,7 +19,7 @@ from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.PartialTrajectories as pt 
 import LearningModels.Neep as neep
 from Dataset import CGTrajectoryDataSet
-from Utility.Params import BaseSystem, ExtForcesGrid
+from Utility.Params import BaseSystem, ExtForcesGrid, MolecularMotor
 
 import torch
 import torch.utils.data as dat
