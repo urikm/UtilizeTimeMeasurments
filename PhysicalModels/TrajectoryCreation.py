@@ -87,6 +87,7 @@ def EstimateTrajParams(mTraj, states2Omit=[]):
     vStates = np.unique(mTraj[:, 0])
     vStates, dMap = MapStates2Indices(vStates, states2Omit=states2Omit)
     nDim = vStates.size
+    trajSize = mTraj.shape[0]
 
     # Inits
     mIndStates = []
@@ -105,7 +106,10 @@ def EstimateTrajParams(mTraj, states2Omit=[]):
     mWest = np.zeros((nDim, nDim))
     for iState in vStates:
         vTmp = np.array(mIndStates[dMap[iState]])+1
-        vTmp = vTmp[:-1]  # Avoid reaching max ind
+        # Avoid reaching max ind
+        if vTmp[-1] == trajSize:
+            vTmp = vTmp[:-1]
+
         for iState2 in vStates:
             if iState2 == iState:  # diagonals are known - lambda_i
                 mWest[dMap[iState2], dMap[iState]] = -vEstLambdas[dMap[iState]]
@@ -149,7 +153,8 @@ def PrintSingleTraj(vP0, mW, vEstLambdas, vSimSteadyState, vMeSteadyState, vEstS
     print('\n\nMaster Eq SS(Steady state):', vMeSteadyState)
     print('SS from simulation:', vSimSteadyState)
     print('ME SS result with estimated W:', vEstSteadyState)  # Compare acheived steady-state from estimated W
-    print('\nRMS of SS elements:', np.sqrt(sum((vMeSteadyState-vEstSteadyState)**2)/nDim))
+    print('\nRMS'
+          ' of SS elements:', np.sqrt(sum((vMeSteadyState-vEstSteadyState)**2)/nDim))
     print('Maximal error for all dimensions:', np.max(abs(vMeSteadyState-vEstSteadyState)))
     print('#####################################################\n\n')
 
@@ -201,10 +206,10 @@ if __name__ == '__main__':
     ## UI
     flagPlot = True
     nDim = 4 # dimension of the problem
-    nTimeStamps = int(1e7) # how much time stamps will be saved
-    initState = rd.randrange(nDim) # Define initial state in T=0
+    nTimeStamps = int(1e7)  # how much time stamps will be saved
+    initState = rd.randrange(nDim)  # Define initial state in T=0
     if 1:
-        mW = GenRateMat(nDim) # transition matrix
+        mW = GenRateMat(nDim)  # transition matrix
         timeStamp = 1
     else:
         mW = np.array([[-11., 1., 0., 7.], [9., -11., 10., 1.], [0., 4., -15., 8.],[2., 6., 5., -16.]])

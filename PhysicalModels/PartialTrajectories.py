@@ -122,11 +122,11 @@ def CalcW4DrivingForce(mW, x, control=[0,1]):
 ################################# Priority to be updated
 # %% Coarse Grain trajectory ; TODO: support several hidden states(not in remap mode)
 @njit
-def CoarseGrainTrajectory(mTrajectory, nFullDim, vHiddenStates, semiCG=False, remap=False, maxAddedStates=1000):
+def CoarseGrainTrajectory(mTrajectory, nFullDim, vHiddenStates, semiCG=False, remap=False, maxAddedStates=30):
     mCgTrajectory = np.copy(mTrajectory)
     nJumps = mCgTrajectory.shape[0]
     iHidden = nFullDim - vHiddenStates.shape[0]
-    vNewHidden = np.zeros(maxAddedStates)
+    vNewHidden = np.zeros(maxAddedStates, dtype=np.int64)
     nHid = 1
 
     if semiCG:
@@ -140,7 +140,8 @@ def CoarseGrainTrajectory(mTrajectory, nFullDim, vHiddenStates, semiCG=False, re
             if iJump < nJumps - 1:
                 if mCgTrajectory[iJump + 1, 0] in vHiddenStates:
                     mCgTrajectory[iJump, 0] = hState
-                    mCgTrajectory[iJump + 1, 1] += mCgTrajectory[iJump, 1]  # cumsum waiting times for each sequence
+                    if not semiCG or (semiCG and remap):
+                        mCgTrajectory[iJump + 1, 1] += mCgTrajectory[iJump, 1]  # cumsum waiting times for each sequence
                 else:
                     mCgTrajectory[iJump, 0] = iHidden
             else:
@@ -163,10 +164,10 @@ def CoarseGrainTrajectory(mTrajectory, nFullDim, vHiddenStates, semiCG=False, re
 
 # Remap semi CG trajectories to system with, possibly, infinite states. A new state for sequence size of hidden jumps
 @njit
-def RemapStates(mCgTrajectory, hidState, maxAddedStates=1000, baseState=1000):
+def RemapStates(mCgTrajectory, hidState, maxAddedStates=30, baseState=100):
     nJumps = mCgTrajectory.shape[0]
-    vNewHidden = np.zeros(maxAddedStates)
-    countAdded = 0
+    vNewHidden = np.arange(baseState + 1, baseState + maxAddedStates + 1)
+    vMask = np.zeros(vNewHidden.shape, dtype=np.int64)
 
     # identify and clamp the different states(which depends on the sequence size og hidden jumps)
     hidSeqCount = 0
@@ -175,15 +176,19 @@ def RemapStates(mCgTrajectory, hidState, maxAddedStates=1000, baseState=1000):
             hidSeqCount += 1
         elif hidSeqCount > 0:  # end of hidden sequence
             mCgTrajectory[iJump - 1, 0] = hidSeqCount + baseState  # mark the end of sequence which hold the cumsum WTD
-            if hidSeqCount + baseState not in vNewHidden:  # Add the new hidden state
-                vNewHidden[countAdded] = hidSeqCount + baseState
-                countAdded += 1
+            if hidSeqCount + baseState in vNewHidden:
+                mCgTrajectory[iJump - 1, 0] = hidSeqCount + baseState   # in this case tag it as the state with max transition possible
+                vMask[hidSeqCount + baseState == vNewHidden] = 1
+            else:  # convert it to the max possible sequences length, in order to avoid numerical issues
+                mCgTrajectory[iJump - 1, 0] = vNewHidden.max()
+                vMask[-1] = 1
             hidSeqCount = 0
-
+    vNewHidden = vNewHidden[(vMask == 1)]
     mCgTrajectory = mCgTrajectory[(mCgTrajectory[:, 0] != hidState), :]
     nCgDim = np.unique(mCgTrajectory[:, 0]).size
 
-    return mCgTrajectory, nCgDim, vNewHidden, countAdded
+    nAdded = np.sum(vMask)
+    return mCgTrajectory, nCgDim, vNewHidden, nAdded
 
 
 # %% Estimate 2nd order statistics of the trajectory (i->j->k transitions)
@@ -210,8 +215,9 @@ def EstimateTrajParams2ndOrder(mTrajectory, vHiddenStates, states2Omit=[]):
                 #if kState == iState:
                 #    continue
                 vIndSecondTrans = vIndFirstTrans[np.array(np.where(mTrajectory[vIndFirstTrans + 1, 0] == kState)[0])] + 1
-                mP2ndOrderTransitions[dMap[iState], dMap[jState], dMap[kState]] = np.size(vIndSecondTrans, 0) / (nTrans4State + 2)
+                mP2ndOrderTransitions[dMap[iState], dMap[jState], dMap[kState]] = np.size(vIndSecondTrans, 0) / (nTrans4State + 1e-17)
                 if (jState in vHiddenStates) & (iState != kState):  # The middle (j) state is POI and other 2 should be different to not vanish
+                    # we interseted in the waiting times of the middle state (j)
                     mWtd.append(mTrajectory[vIndSecondTrans - 1, 1])
                     vDebug.append(iState*100 + jState*10 + kState)
 
@@ -224,20 +230,21 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     vStates = np.unique(mCgTrajectory[:, 0])
     vStates, dMap = MapStates2Indices(vStates, states2Omit=states2Omit)
     nStates = len(vStates)
+    eps = 1e-9  # used for numerical stability
 
     # Estimate 1st and 2nd order statistics from hidden trajectory
-    mIndStates, mWaitTimes, vEstLambdas, mWest, vStSt = EstimateTrajParams(mCgTrajectory, states2Omit=states2Omit)
+    mIndStates, _, _, _, _ = EstimateTrajParams(mCgTrajectory, states2Omit=states2Omit)
     mP2ndOrdTrans, mWtd, vDebug = EstimateTrajParams2ndOrder(mCgTrajectory, vHiddenStates, states2Omit=states2Omit)
 
     # Calculate steady state distribution occurence of each state(per jump)
     vR = np.zeros(nStates)
     for iState in vStates:
         vR[dMap[iState]] = np.size(mIndStates[dMap[iState]], 0)
-    nTot = vR.sum()
+    nTot = mCgTrajectory.shape[0]
     vR /= nTot
 
     # Time factor('tau') to convert from "per jump" to "per step" - mean dwelling time per jump
-    T = np.mean(mCgTrajectory[:, 1]) # Also can be the mean over mean dwelling per state - np.dot(vTau, vR)
+    T = np.mean(mCgTrajectory[:, 1])  # Also can be the mean over mean dwelling per state - np.dot(vTau, vR)
 
     ## Find affinity part
     # Math: R12 = p21*R[1] = (tau[1]*w21)*(Pi[1]*T/tau[1])=w21*Pi[1]*T
@@ -245,9 +252,15 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     for iState in vStates:
         iState = int(iState)
         vTransStates = np.roll(vStates, -dMap[iState])[1:]
-        for jState in vTransStates:
-            vRij[dMap[iState], dMap[jState]] = mWest[dMap[jState], dMap[iState]] * vStSt[dMap[iState]] * T
+        vTmp = mIndStates[dMap[iState]] + 1
+        if vTmp[-1] == nTot:
+            vTmp = vTmp[:-1]
 
+        for jState in vTransStates:
+            vSecJump = np.where(mCgTrajectory[vTmp, 0] == jState)
+            vRij[dMap[iState], dMap[jState]] = vSecJump[0].size / (nTot - 1)
+
+    vRij[vRij == 0] = eps
     # Pijk = Pr{to observe i>j>k} => Pijk=R[ijk]*R[i](Related only to state, not time related)
     vPij_jk = np.zeros((nStates,) * 3)
     for iState in vStates:
@@ -256,39 +269,34 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
                 if vRij[dMap[iState], dMap[jState]] > 0:
-                    vPij_jk[dMap[iState], dMap[jState], dMap[kState]] = mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] \
-                                                        * vR[dMap[iState]] / vRij[dMap[iState], dMap[jState]]
+                    vPij_jk[dMap[iState], dMap[jState], dMap[kState]] = mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] / vRij[dMap[iState], dMap[jState]]
     # Calculate Affinity part
+
+    vPij_jk[vPij_jk == 0] = eps
     sigmaDotAff = 0
     for iState in vStates:
         vFirstTrans = np.roll(vStates, -dMap[iState])[1:]
         for jState in vFirstTrans:
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
-                if vPij_jk[dMap[iState], dMap[jState], dMap[kState]] > 0 and vPij_jk[dMap[kState], dMap[jState], dMap[iState]] > 0:
-                    sigmaDotAff += mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] * \
-                                   np.log(vPij_jk[dMap[iState], dMap[jState], dMap[kState]]/vPij_jk[dMap[kState], dMap[jState], dMap[iState]])
+                if vPij_jk[dMap[iState], dMap[jState], dMap[kState]] > eps or vPij_jk[dMap[kState], dMap[jState], dMap[iState]] > eps:
+                    sigmaDotAff += mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] * np.log(vPij_jk[dMap[iState], dMap[jState], dMap[kState]]/vPij_jk[dMap[kState], dMap[jState], dMap[iState]])
     sigmaDotAff /= T
 
     # Calculate WTD part
     maxWTD = np.percentile(mCgTrajectory[:, 1], 99)  #mCgTrajectory[:, 1].mean() + 2 * mCgTrajectory[:, 1].std()
-    nPoints = 51
+    nPoints = 501
 
-    vGridDest = np.linspace(0, maxWTD, nPoints)  # np.linspace(0, 0.25, 100)  #
+    vGridDest = np.linspace(1e-5, maxWTD, nPoints)  # np.linspace(0, 0.25, 100)  #
     # Prepare several KDE as function of given data
-    bw1 = (maxWTD / nPoints) * 0.8
-    bw2 = (maxWTD / nPoints) * 1.5
-    bw3 = (maxWTD / nPoints) * 1.7  # 0.0043 # less than grid resolution * 2
-    # bw4 = (maxWTD / nPoints) * 15
-    kde1 = KD(bandwidth=bw1)
-    kde2 = KD(bandwidth=bw2)
-    kde3 = KD(bandwidth=bw3)
-    # kde4 = KD(bandwidth=bw4)
 
     sigmaDotWtd = 0
     countWtd = 0
-    eps = 1e-9  # used for numerical stability of WTD calculation
-    mWtdBuffer = eps + np.zeros((nStates, nStates, nStates, len(vGridDest)))
+    countDebug = 0
+
+    # initial distribution is a delta on the lowest bin
+    mWtdBuffer = np.zeros((nStates, nStates, nStates, len(vGridDest)))
+    # mWtdBuffer[:, :, :, 0] = 1 - eps*(len(vGridDest)-1)  # normalize the distribution
     # Accumulate the pdf of each relevant i->j->k
     for iState in vStates:
         vFirstTrans = np.roll(vStates, -dMap[iState])[1:]
@@ -296,31 +304,34 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
                 if (jState in vHiddenStates) & (iState != kState):
-                    if mWtd[countWtd] != [] and mWtd[countWtd].size > 200:
-                        # Choose different kernal - depends on the statistics size
-                        if mWtd[countWtd].size > 1e5:  # second condition assures fit only when enough data
-                            kde = kde1
-                        elif mWtd[countWtd].size > 5e3:
-                            kde = kde2
-                        else:  # elif mWtd[countWtd].size > 1e3:
-                            kde = kde3
-                        # else:
-                        #     kde = kde4
+                    if mWtd[countWtd].size > 100:
+                        # if mWtd[countWtd].size >= 2:  # use only sequences with enough statistics
+                        bw = 0.9 * mWtd[countWtd].std() * mWtd[countWtd].size**(-1/5)  # from literature
+                        # elif mWtd[countWtd].size == 1:
+                        #     bw = 0.9 * (vGridDest[-1] - vGridDest[0]) * mWtd[countWtd].size ** (-1 / 5)
+                        kde = KD(bandwidth=bw)
                         kde.fit(mWtd[countWtd][:, None])
                         ddiHk = np.exp(kde.score_samples(vGridDest[:, None]))
-                        pDdiHk = ddiHk / np.sum(ddiHk)
+                        pDdiHk = np.zeros(ddiHk.shape)
+                        pDdiHk[ddiHk != 0] = ddiHk[ddiHk != 0] / np.sum(ddiHk[ddiHk != 0])
                         mWtdBuffer[dMap[iState], dMap[jState], dMap[kState], :] = pDdiHk
+                        countDebug += 1
                     countWtd += 1
+    mWtdBuffer[mWtdBuffer == 0] = eps  # avoid numerical issues
 
     for iState in vStates:
         vFirstTrans = np.roll(vStates, -dMap[iState])[1:]
         for jState in vFirstTrans:
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
-                vPSIijk = mWtdBuffer[dMap[iState], dMap[jState], dMap[kState]]
-                vPSIkji = mWtdBuffer[dMap[kState], dMap[jState], dMap[iState]]
-                kldPsi = np.sum(np.multiply(vPSIijk, np.log(vPSIijk) - np.log(vPSIkji)))
-                sigmaDotWtd += (mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] / T) * kldPsi
+                if (jState in vHiddenStates) & (iState != kState):
+                    vPSIijk = mWtdBuffer[dMap[iState], dMap[jState], dMap[kState]]
+                    vPSIkji = mWtdBuffer[dMap[kState], dMap[jState], dMap[iState]]
+                    if vPSIijk.max() == eps or vPSIkji.max() == eps:  #ADD: or np.isnan(vPSIijk).sum() > 0 or np.isnan(vPSIkji).sum() > 0 :
+                        continue
+                    #kldPsi = np.sum(np.multiply(vPSIijk, np.log(vPSIijk) - np.log(vPSIkji)))
+                    kldPsi = np.trapz(np.multiply(vPSIijk, np.log(vPSIijk) - np.log(vPSIkji)))
+                    sigmaDotWtd += (mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] / T) * kldPsi
 
     sigmaDotKld = sigmaDotAff + sigmaDotWtd
     return sigmaDotKld, T, sigmaDotAff, sigmaDotWtd
@@ -362,7 +373,6 @@ if __name__ == '__main__':
 
     # mTrajectory,mW = CreateTrajectory(nDim,nTimeStamps,initState,mW) # Run Create Trajectory
     # # Calculate Steady state
-    # mIndStates,mWaitTimes,vEstLambdas,mWest,vSimSteadyState = EstimateTrajParams(nDim,mTrajectory)       
     # Calculate Stalling data
     vPiSt, xSt, r01, r10 = CalcStallingData(mW)
 

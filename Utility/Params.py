@@ -52,6 +52,35 @@ def RingSystem():
 
     return mW, nDim, vHiddenStates, timeRes
 
+def MolecularMotor(mu, F):
+    l = 1 # 0.1
+    r = 1 # 0.1
+    u1 = 0.01 # 0.8
+    d1 = 0.01 # 0.8
+    u2 = 1
+    d2 = 1
+
+    l_tmp = l
+    r_tmp = r
+    u1_tmp = u1*np.exp(-F/2)
+    d1_tmp = d1*np.exp(F/2)
+    u2_tmp = u2*np.exp(-(F-mu)/2)
+    d2_tmp = d2*np.exp((F-mu)/2)
+    mW = np.array([[0, r_tmp, d1_tmp, 0, u1_tmp, u2_tmp],
+                    [l_tmp, 0, d2_tmp, 0, 0, 0],
+                    [u1_tmp, u2_tmp, 0, r_tmp, d1_tmp, 0],
+                    [0, 0, l_tmp, 0, d2_tmp, 0],
+                    [d1_tmp, 0, u1_tmp, u2_tmp, 0, r_tmp],
+                    [d2_tmp, 0, 0, 0, l_tmp, 0]], dtype=float)
+
+    np.fill_diagonal(mW, -np.sum(mW, axis=0).squeeze())
+
+    nDim = mW.shape[0]  # dimension of the problem
+    timeRes = 0.05
+
+    vHiddenStates = np.array([0, 1, 2])
+
+    return mW, nDim, vHiddenStates, timeRes
 def DataSetCreationParams():
     samplePrefix = 'BatchedSample_'
     fileSuffix = '.pt'
@@ -95,6 +124,7 @@ def ExtForcesGrid(chooseGrid, interpRes=5e-3):
     elif chooseGrid == 'RNEEPadd': # Also used in the paper
         vGrid = np.array([xSt-0.1, xSt+0.1])
         vGridInterp = np.array([xSt-0.1 ,xSt+0.1]) # DONT CARE
+        subFolder = 'AnalysisPaper_'
     else:
         raise Exception("Wrong grid chosen!")
 

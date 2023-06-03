@@ -287,29 +287,38 @@ def p_ss(V, T=1, r=1):
 
 # %% Create Flashing Ratchet CG trajectory  ;   Note: deprecates use of simulation
 def CreateNEEPTrajectory(nTimeStamps=5e4, V=0., fullCg=False, isCG=True, remap=False):
+    T=1
+    r=1
     nTimeStamps = int(nTimeStamps)
     nDim = 6
+    tauFactorBeforeRemap = -1
 
-    initState = np.random.choice(nDim, 1, p=p_ss(V)).item()
-    mW = rate_matrix(V)
+    initState = np.random.choice(nDim, 1, p=p_ss(V, T=T, r=r)).item()
+    mW = rate_matrix(V, T=T, r=r)
 
     mCgTrajectory, _ = CreateTrajectory(nDim, nTimeStamps, initState, mW) # Create FR trajectory
     vHiddenStates = np.array([])
     if isCG:
         mCgTrajectory[:, 0] = mCgTrajectory[:, 0] % 3  # Semi-CG
 
-        if fullCg:
-            trainBuffer = np.zeros(mCgTrajectory[:, 0].size)
+        if not fullCg: # in case of semi-CG we want to calculate Tau factor before remaping
+            tauFactorBeforeRemap = mCgTrajectory[:, 1].mean()
+        if fullCg or (not fullCg and remap):
+            # prepare the trajectory -if semiCG make pseudo CG for than remapping. in FullCG it does al the CG
+            trainBuffer = np.ones(mCgTrajectory[:, 0].size)
             for iStep in range(mCgTrajectory[:, 0].size):
             # now decimate train and test set
                 # handle special case of first element
                 if iStep == 0:
-                    trainBuffer[iStep] = 1
                     continue
                 # create mask for train set
-                if mCgTrajectory[iStep-1, 0] != mCgTrajectory[iStep, 0]:
-                    trainBuffer[iStep] = 1
+                if mCgTrajectory[iStep-1, 0] == mCgTrajectory[iStep, 0]:
+                    trainBuffer[iStep-1] = 0
+                    mCgTrajectory[iStep, 1] += mCgTrajectory[iStep - 1, 1]
+
+        if fullCg:
             mCgTrajectory = mCgTrajectory[trainBuffer == 1, :]
+            tauFactorBeforeRemap = mCgTrajectory[:, 1].mean()
 
         vStates = np.unique(mCgTrajectory[:, 0])
         nDim = vStates.size
@@ -317,8 +326,8 @@ def CreateNEEPTrajectory(nTimeStamps=5e4, V=0., fullCg=False, isCG=True, remap=F
         if remap and not fullCg:  # for each state we need to repeat the remap process
             vHiddenStates = np.array([])
             for iHid in vStates:
-                mCgTrajectory, nDim, vNewHidden, countAdded = pt.RemapStates(mCgTrajectory, iHid, baseState=int((iHid + 1) * 1000))
+                mCgTrajectory, nDim, vNewHidden, countAdded = pt.RemapStates(mCgTrajectory, iHid, baseState=int((iHid + 1) * 100))
                 # Add the new vHiddenStates
                 vHiddenStates = np.concatenate((vHiddenStates, vNewHidden[:countAdded]), axis=0)
             nDim = np.unique(mCgTrajectory[:, 0]).size
-    return mCgTrajectory, nDim, vHiddenStates
+    return mCgTrajectory, nDim, vHiddenStates, tauFactorBeforeRemap

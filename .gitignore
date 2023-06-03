@@ -13,3 +13,4 @@ __pycache__/
 *.xlsx
 *.txt
 *.pdf
+venv/

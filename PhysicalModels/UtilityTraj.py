@@ -13,7 +13,7 @@ import numpy as np
 # Coarse grain rate matrix by combining hidden states to single state.
 # Note: there is no importance for dweling rate for the hidden state because its not Poisson distributed
 # TODO : write it more general by using the chosen hidden states
-def CgRateMatrix(mW,vHidden):
+def CgRateMatrix(mW, vHidden):
     # Inits
     nDim = np.size(mW, 0)  # We can take the '1' dimension, doesnt matter for rate matrix
     nDimCg = nDim-(np.size(vHidden)-1)

@@ -15,7 +15,7 @@ sEPR = sEPR[validInd]
 fEPR = fEPR[validInd]
 fullEPR = fullEPR[validInd]
 vv = np.maximum(sEPR, fEPR)/fullEPR * 100
-# don't show outliers
+# don't show outliers - extreme outliers, this situation happen because some numerical issues
 validInd2 = vv <= 100  # fullEPR >= 25
 sEPR = sEPR[validInd2]
 fEPR = fEPR[validInd2]
@@ -47,7 +47,7 @@ resFig2.set_size_inches((64, 64))
 resFig2.savefig(f'SCGvsFCG_FullEPR.svg')
 
 resFig3, ax3 = plt.subplots()
-a3 = ax3.hist(vv, ec="black")
+a3 = ax3.hist(vv, ec="black", density=1)
 # plt.title('Histogram of ')
 plt.xlabel('S-EPR/Full-EPR [%]', fontsize='x-large')
 plt.ylabel('pdf', fontsize='x-large')

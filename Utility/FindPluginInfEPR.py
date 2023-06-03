@@ -38,8 +38,8 @@ def CreateGilisTrajectory(nTimeStamps=5e6, x=0.):
 def EstimatePluginM(vStatesTraj, m, gamma=1e-11):
     # We will use the symmetry(anti-symmetry) of the KLD for our favor.
     # The following algorithm uses this property of the target KLD.
-    nEffLength = len(vStatesTraj) - m + 1#np.floor(len(vStatesTraj)/m)#
-    vSeq2Dec = np.power(10, range(m))
+    nEffLength = len(vStatesTraj) - m + 1 #np.floor(len(vStatesTraj)/m)#
+    vSeq2Dec = np.power(10 ** np.log10(vStatesTraj.max()).__ceil__(), range(m))
     kldEstm = 0
     endFlag = False
     countF = 0
@@ -47,7 +47,7 @@ def EstimatePluginM(vStatesTraj, m, gamma=1e-11):
 
 
     # Collect sequence statistics for one direction sequences
-    vIndicateSeq = np.correlate(vStatesTraj, np.flip(vSeq2Dec)) # this correlation equal to coding each sequence
+    vIndicateSeq = np.correlate(vStatesTraj, np.flip(vSeq2Dec))  # this correlation equal to coding each sequence
     vSeqs1, vProbOfSeq1 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
     opts = len(vSeqs1)
     zeroProb = gamma/(nEffLength+opts*gamma)
@@ -56,8 +56,9 @@ def EstimatePluginM(vStatesTraj, m, gamma=1e-11):
     # Same for other direction
     vIndicateSeq = np.correlate(vStatesTraj, vSeq2Dec) # this correlation equal to coding each sequence in opposite direction
     vSeqs2, vProbOfSeq2 = np.unique(vIndicateSeq, return_counts=True) # this function is also sorting values and their counts
-    vProbOfSeq2= (vProbOfSeq2+gamma)/(nEffLength+opts*gamma)  #vProbOfSeq2/nEffLength # used to calculate the probabilities log ratio of forward and backward trajectory
+    vProbOfSeq2 = (vProbOfSeq2+gamma)/(nEffLength+opts*gamma)  #vProbOfSeq2/nEffLength # used to calculate the probabilities log ratio of forward and backward trajectory
 
+    # assert abs(vProbOfSeq1.sum() - 1) < 1e-5 and abs(vProbOfSeq2.sum() - 1) < 1e-5, 'Mismatch in plugin probabilities'
     while countF < len(vProbOfSeq1) or countB < len(vProbOfSeq2):
         if (countF < len(vProbOfSeq1) and countB < len(vProbOfSeq2)) and vSeqs1[countF] == vSeqs2[countB]:
             kldEstm += vProbOfSeq1[countF]*np.log(vProbOfSeq1[countF]/vProbOfSeq2[countB])
@@ -86,24 +87,24 @@ def EstimatePluginInf(mCgTrajectory, maxSeq=9, gamma=1e-11):
     vKldM = np.ones(vGrid.shape)
     vEprEst = np.ones(vGrid.shape)  #np.ones(vGrid2Fit.shape)
     # Collect data for fitting
-    for m, iM in enumerate(vGrid):
+    for iM, m in enumerate(vGrid):
         #print('Estimating KLD for seq size: ' + str(iM))
-        vKldM[m], _ = EstimatePluginM(mCgTrajectory, iM, gamma=gamma)
+        vKldM[iM], _ = EstimatePluginM(mCgTrajectory, m, gamma=gamma)
     #print('Completed gather fitting points. Start fit...')
     # Fit the data
 
     vEprEst[0] = vKldM[0]
     vEprEst[1:] = vKldM[1:] - vKldM[:-1] #vKldM[1::2] - vKldM[::2] #
     #vEprEst = np.divide(vKldM, (vGrid-1))
-    popt, _ = curve_fit(FitFunc, vGrid, vEprEst)
-    # popt, _ = curve_fit(FitFunc, vGrid2Fit, vEprEst)
+    popt, _ = curve_fit(FitFunc, vGrid, vEprEst, method='trf', bounds=(0, 50))
+    # popt, _ = curve_fit(FitFunc, vGrid, vEprEst)
     kldInf = popt[0]
 
     return kldInf
 
 
 def FitFunc(x, b, c, g):
-    return b - c*(np.log(x)/x**g)
+    return b - c*(np.log(x) / x**g)
 
 def SemiAnalyticalKLD(vTraj, mW):
     # TODO : implement by demand
