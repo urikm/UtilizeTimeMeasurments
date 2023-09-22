@@ -18,7 +18,7 @@ import os
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.PartialTrajectories as pt
 import LearningModels.Neep as neep
-from Dataset import CGTrajectoryDataSet
+from Dataset import CGTrajectoryDataSetMM
 from Utility.Params import BaseSystem, ExtForcesGrid, MolecularMotor
 
 import torch
@@ -130,17 +130,17 @@ if __name__ == '__main__':
         vFull[i] = pt.EntropyRateCalculation(nDim, mWx, vPiX)
 
         # Create Datasets
-        trainDataSet = CGTrajectoryDataSet(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps,
-                                           extForce=x, rootDir=opt.dump_ds, semiCG=opt.semiCG)
-        validDataSet = CGTrajectoryDataSet(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps,
-                                           extForce=x, mode='valid', rootDir=opt.dump_ds, semiCG=opt.semiCG)
+        trainDataSet = CGTrajectoryDataSetMM(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps,
+                                           mu=mu, F=F, rootDir=opt.dump_ds, semiCG=opt.semiCG)
+        validDataSet = CGTrajectoryDataSetMM(seqLen=vSeqSize[0], batchSize=opt.batch_size, lenTrajFull=nTimeStamps,
+                                           mu=mu, F=F, mode='valid', rootDir=opt.dump_ds, semiCG=opt.semiCG)
         # KLD bound
         vKldValid[i] = validDataSet.targetKLD
         T = validDataSet.timeFactor
 
         k = 0
         for iSeqSize in vSeqSize:
-            print('Calculating estimator for x = ' + str(x) + ' ; Sequence size: ' + str(iSeqSize) + " ; KLD: " + str(
+            print('Calculating estimator for mu = ' + str(mu) + ' ; F = ' + str(F) + ' ; Sequence size: ' + str(iSeqSize) + " ; KLD: " + str(
                 vKldValid[i]))
             validLoader = torch.utils.data.DataLoader(validDataSet)
             trainLoader = torch.utils.data.DataLoader(trainDataSet)
