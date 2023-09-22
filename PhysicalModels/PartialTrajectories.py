@@ -140,7 +140,7 @@ def CoarseGrainTrajectory(mTrajectory, nFullDim, vHiddenStates, semiCG=False, re
             if iJump < nJumps - 1:
                 if mCgTrajectory[iJump + 1, 0] in vHiddenStates:
                     mCgTrajectory[iJump, 0] = hState
-                    if not semiCG or (semiCG and remap):
+                    if not semiCG:
                         mCgTrajectory[iJump + 1, 1] += mCgTrajectory[iJump, 1]  # cumsum waiting times for each sequence
                 else:
                     mCgTrajectory[iJump, 0] = iHidden
@@ -173,7 +173,10 @@ def RemapStates(mCgTrajectory, hidState, maxAddedStates=30, baseState=100):
     hidSeqCount = 0
     for iJump in range(nJumps):
         if mCgTrajectory[iJump, 0] == hidState:
+            if hidSeqCount > 0:
+                mCgTrajectory[iJump, 1] += mCgTrajectory[iJump - 1, 1]
             hidSeqCount += 1
+
         elif hidSeqCount > 0:  # end of hidden sequence
             mCgTrajectory[iJump - 1, 0] = hidSeqCount + baseState  # mark the end of sequence which hold the cumsum WTD
             if hidSeqCount + baseState in vNewHidden:
@@ -215,7 +218,7 @@ def EstimateTrajParams2ndOrder(mTrajectory, vHiddenStates, states2Omit=[]):
                 #if kState == iState:
                 #    continue
                 vIndSecondTrans = vIndFirstTrans[np.array(np.where(mTrajectory[vIndFirstTrans + 1, 0] == kState)[0])] + 1
-                mP2ndOrderTransitions[dMap[iState], dMap[jState], dMap[kState]] = np.size(vIndSecondTrans, 0) / (nTrans4State + 1e-17)
+                mP2ndOrderTransitions[dMap[iState], dMap[jState], dMap[kState]] = vIndSecondTrans.size / (mTrajectory[:, 0].size - 2) #np.size(vIndSecondTrans, 0) / (nTrans4State + 1e-17)
                 if (jState in vHiddenStates) & (iState != kState):  # The middle (j) state is POI and other 2 should be different to not vanish
                     # we interseted in the waiting times of the middle state (j)
                     mWtd.append(mTrajectory[vIndSecondTrans - 1, 1])
@@ -230,7 +233,7 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     vStates = np.unique(mCgTrajectory[:, 0])
     vStates, dMap = MapStates2Indices(vStates, states2Omit=states2Omit)
     nStates = len(vStates)
-    eps = 1e-9  # used for numerical stability
+    eps = 1e-8  # used for numerical stability
 
     # Estimate 1st and 2nd order statistics from hidden trajectory
     mIndStates, _, _, _, _ = EstimateTrajParams(mCgTrajectory, states2Omit=states2Omit)
@@ -260,7 +263,6 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
             vSecJump = np.where(mCgTrajectory[vTmp, 0] == jState)
             vRij[dMap[iState], dMap[jState]] = vSecJump[0].size / (nTot - 1)
 
-    vRij[vRij == 0] = eps
     # Pijk = Pr{to observe i>j>k} => Pijk=R[ijk]*R[i](Related only to state, not time related)
     vPij_jk = np.zeros((nStates,) * 3)
     for iState in vStates:
@@ -269,26 +271,33 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
                 if vRij[dMap[iState], dMap[jState]] > 0:
-                    vPij_jk[dMap[iState], dMap[jState], dMap[kState]] = mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] / vRij[dMap[iState], dMap[jState]]
+                    # vPij_jk[dMap[iState], dMap[jState], dMap[kState]] = mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] / vRij[dMap[iState], dMap[jState]]
+                    vPij_jk[dMap[iState], dMap[jState], dMap[kState]] = mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] / vRij[dMap[iState], dMap[jState]]
     # Calculate Affinity part
-
-    vPij_jk[vPij_jk == 0] = eps
+    vPij_jk[vPij_jk < eps] = eps
     sigmaDotAff = 0
     for iState in vStates:
         vFirstTrans = np.roll(vStates, -dMap[iState])[1:]
         for jState in vFirstTrans:
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
-                if vPij_jk[dMap[iState], dMap[jState], dMap[kState]] > eps or vPij_jk[dMap[kState], dMap[jState], dMap[iState]] > eps:
-                    sigmaDotAff += mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] * np.log(vPij_jk[dMap[iState], dMap[jState], dMap[kState]]/vPij_jk[dMap[kState], dMap[jState], dMap[iState]])
+                if vPij_jk[dMap[iState], dMap[jState], dMap[kState]] > eps and vPij_jk[dMap[kState], dMap[jState], dMap[iState]] > eps:
+                    # The following was seperated for DDEBUG purpose
+                    singleDirAff1 = mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * np.log(
+                        vPij_jk[dMap[iState], dMap[jState], dMap[kState]] / vPij_jk[
+                            dMap[kState], dMap[jState], dMap[iState]])
+                    singleDirAff2 = mP2ndOrdTrans[dMap[kState], dMap[jState], dMap[iState]] * np.log(
+                        vPij_jk[dMap[kState], dMap[jState], dMap[iState]] / vPij_jk[
+                            dMap[iState], dMap[jState], dMap[kState]])
+                    affAddition = singleDirAff1 + singleDirAff2
+                    sigmaDotAff += affAddition / 2  # because every thing will be calculated twice
     sigmaDotAff /= T
 
     # Calculate WTD part
-    maxWTD = np.percentile(mCgTrajectory[:, 1], 99)  #mCgTrajectory[:, 1].mean() + 2 * mCgTrajectory[:, 1].std()
-    nPoints = 501
-
-    vGridDest = np.linspace(1e-5, maxWTD, nPoints)  # np.linspace(0, 0.25, 100)  #
-    # Prepare several KDE as function of given data
+    maxWTD = np.percentile(mCgTrajectory[:, 1], 98)
+    minWTD = np.percentile(mCgTrajectory[:, 1], 0.1)
+    nPoints = 500
+    vGridDest = np.linspace(minWTD, maxWTD, nPoints)  # np.linspace(0, 0.25, 100)  #
 
     sigmaDotWtd = 0
     countWtd = 0
@@ -304,35 +313,31 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
                 if (jState in vHiddenStates) & (iState != kState):
-                    if mWtd[countWtd].size > 100:
-                        # if mWtd[countWtd].size >= 2:  # use only sequences with enough statistics
-                        bw = 0.9 * mWtd[countWtd].std() * mWtd[countWtd].size**(-1/5)  # from literature
-                        # elif mWtd[countWtd].size == 1:
-                        #     bw = 0.9 * (vGridDest[-1] - vGridDest[0]) * mWtd[countWtd].size ** (-1 / 5)
+                    if mWtd[countWtd].size >= 1000:
+                        # Silverman's rule of thumb - The internal implementation is buggy so did it myself for now
+                        bw = 1.06 * min(mWtd[countWtd].std(), (np.percentile(mWtd[countWtd], 75) - np.percentile(mWtd[countWtd], 25)) / 1.34) \
+                            * mWtd[countWtd].size**(-1/5)
                         kde = KD(bandwidth=bw)
                         kde.fit(mWtd[countWtd][:, None])
-                        ddiHk = np.exp(kde.score_samples(vGridDest[:, None]))
-                        pDdiHk = np.zeros(ddiHk.shape)
-                        pDdiHk[ddiHk != 0] = ddiHk[ddiHk != 0] / np.sum(ddiHk[ddiHk != 0])
+                        pDdiHk = np.exp(kde.score_samples(vGridDest[:, None]))
                         mWtdBuffer[dMap[iState], dMap[jState], dMap[kState], :] = pDdiHk
                         countDebug += 1
                     countWtd += 1
-    mWtdBuffer[mWtdBuffer == 0] = eps  # avoid numerical issues
-
+    mWtdBuffer[mWtdBuffer < eps] = eps
     for iState in vStates:
         vFirstTrans = np.roll(vStates, -dMap[iState])[1:]
         for jState in vFirstTrans:
             vSecondTrans = np.roll(vStates, -dMap[jState])[1:]
             for kState in vSecondTrans:
-                if (jState in vHiddenStates) & (iState != kState):
+                if (jState in vHiddenStates) and (iState != kState):
                     vPSIijk = mWtdBuffer[dMap[iState], dMap[jState], dMap[kState]]
                     vPSIkji = mWtdBuffer[dMap[kState], dMap[jState], dMap[iState]]
-                    if vPSIijk.max() == eps or vPSIkji.max() == eps:  #ADD: or np.isnan(vPSIijk).sum() > 0 or np.isnan(vPSIkji).sum() > 0 :
-                        continue
+                    #%if vPSIijk.max() == eps or vPSIkji.max() == eps:  #ADD: or np.isnan(vPSIijk).sum() > 0 or np.isnan(vPSIkji).sum() > 0 :
+                    #   continue
                     #kldPsi = np.sum(np.multiply(vPSIijk, np.log(vPSIijk) - np.log(vPSIkji)))
-                    kldPsi = np.trapz(np.multiply(vPSIijk, np.log(vPSIijk) - np.log(vPSIkji)))
-                    sigmaDotWtd += (mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] / T) * kldPsi
-
+                    kldPsi = np.trapz(np.multiply(vPSIijk, np.log(vPSIijk) - np.log(vPSIkji)), vGridDest)
+                    # sigmaDotWtd += (mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] / T) * kldPsi
+                    sigmaDotWtd += (mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] / T) * kldPsi
     sigmaDotKld = sigmaDotAff + sigmaDotWtd
     return sigmaDotKld, T, sigmaDotAff, sigmaDotWtd
 

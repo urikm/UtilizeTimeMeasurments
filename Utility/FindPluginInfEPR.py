@@ -96,7 +96,7 @@ def EstimatePluginInf(mCgTrajectory, maxSeq=9, gamma=1e-11):
     vEprEst[0] = vKldM[0]
     vEprEst[1:] = vKldM[1:] - vKldM[:-1] #vKldM[1::2] - vKldM[::2] #
     #vEprEst = np.divide(vKldM, (vGrid-1))
-    popt, _ = curve_fit(FitFunc, vGrid, vEprEst, method='trf', bounds=(0, 50))
+    popt, _ = curve_fit(FitFunc, vGrid, vEprEst, method='trf', bounds=(0, 80))
     # popt, _ = curve_fit(FitFunc, vGrid, vEprEst)
     kldInf = popt[0]
 

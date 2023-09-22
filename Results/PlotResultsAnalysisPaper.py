@@ -38,14 +38,14 @@ mWCg = CgRateMatrix(mW, vHiddenStates)
 addPlugin = True
 addSemiCG = True
 addGilisRes = False
-addFullCG = False
+addFullCG = True
 
 pathWoTime = 'Analysis_RNEEP_paper_22_03_07' # 'Analysis_RNEEP_paper_22_04_06'  #'Analysis_RNEEP_22_01_11'#'Analysis_RNEEP_collection'#'Analysis_RNEEP_21_08_09'# 'RNEEP_21_05_27' # Example, you should the wanted recording for plot
 pathWoTimekld = pathWoTime  # 'Analysis_RNEEP_21_08_09'
 
 nRuns = 10  # number of runs for collecting statistics (from recorded data
 nSeqs = 5 #6  # number of different seq size input - 3,16,32,64,128
-nRunsC = 1  # number of runs for collecting statistics of plugin/KLD
+nRunsC = 10  # number of runs for collecting statistics of plugin/KLD
 trajlength = 1e7
 
 # -----------Grid----------------
@@ -100,9 +100,9 @@ for ix, x in enumerate(vGridSemi):
         for iRun in range(nRunsC):
             mCgTraj, nCgDim, vHiddenStatesF = CreateCoarseGrainedTraj(nDim, int(trajlength), mWx, vHiddenStates, timeRes)
             vKld2[ix, iRun], T, _, _ = CalcKLDPartialEntropyProdRate(mCgTraj, vHiddenStatesF)
-            vKld2[ix, iRun] *= T
+            # vKld2[ix, iRun] *= T
             if addPlugin:
-                vPluginInf[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=1e-1) #/ T
+                vPluginInf[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=0) / T
 
     # Add the SCG with times
     if addSemiCG:
@@ -112,12 +112,13 @@ for ix, x in enumerate(vGridSemi):
             states2Omit = []  # np.arange(1011, 1025)
             vKldSemi2[ix, iRun], Tsemi2, vKldSemiAff[ix, iRun], _ = CalcKLDPartialEntropyProdRate(mCgTraj, vHiddenStatesS2,
                                                                     states2Omit=states2Omit)
-            vKldSemi2[ix, iRun] *= Tsemi2
+            # vKldSemi2[ix, iRun] *= Tsemi2
             if addPlugin:
                 # vPluginRemap[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=1e-2)
                 mCgTraj, _, vHiddenStatesS = CreateCoarseGrainedTraj(nDim, int(trajlength), mWx, vHiddenStates, timeRes, semiCG=True, remap=False)
-                vPluginInfSemi[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=1e-1) #/ np.mean(mCgTraj[:, 1])
+                vPluginInfSemi[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=0) / np.mean(mCgTraj[:, 1])
                 # TODO : Make the following lines sane as ub FR and MM models
+                #vKldSemi2[ix, iRun] *= (Tsemi2 / np.mean(mCgTraj[:, 1]))
         vTNeep[ix] = mCgTraj[:, 1].mean()
             #vKldSemi2[ix, iRun] *= (Tsemi2 / np.mean(mCgTraj[:, 1]))
             # vPluginRemap[ix, iRun] /= np.mean(mCgTraj[:, 1])
@@ -205,15 +206,15 @@ if addPlugin:
     # ax1.errorbar(np.flip(-vGridSemi), np.flip(vPluginRemap.mean(axis=1)), yerr=np.flip(vPluginRemap.std(axis=1)), fmt='-', lw=0.5,
     #              color=(0.9290, 0.6940, 0.1250), label='$\sigma_{\mathrm{plugRe}}$')
 if addSemiCG:
-    ax1.errorbar(np.flip(-vGridSemi), np.flip(mNeepMeanSemi[nSeqs-1, :] * vTNeep), yerr=np.flip(mNeepStdSemi[nSeqs-1, :] * vTNeep), fmt='d',
+    ax1.errorbar(np.flip(-vGridSemi), np.flip(mNeepMeanSemi[nSeqs-1, :]), yerr=np.flip(mNeepStdSemi[nSeqs-1, :] * vTNeep), fmt='d',
                  color=(0.2940, 0.1140, 0.3560), markersize=5, label='$\sigma_{\mathrm{RNEEP,12}}$')
     # ax1.errorbar(np.flip(-vGridSemi), np.flip(mNeepMeanSemi[3, :]), yerr=np.flip(mNeepStdSemi[3, :]), fmt='Xy',
     #              label='SemiCG-seq11')
     # ax1.errorbar(np.flip(-vGridSemi), np.flip(mNeepMeanSemi[2, :]), yerr=np.flip(mNeepStdSemi[2, :]), fmt='Xr',
     #              label='SemiCG-seq6')
-    ax1.errorbar(np.flip(-vGridSemi), np.flip(mNeepMeanSemi[2, :] * vTNeep), yerr=np.flip(mNeepStdSemi[2, :] * vTNeep), fmt='d',
+    ax1.errorbar(np.flip(-vGridSemi), np.flip(mNeepMeanSemi[2, :]), yerr=np.flip(mNeepStdSemi[2, :] * vTNeep), fmt='d',
                  color=(0.4940, 0.2840, 0.5560), markersize=4, label='$\sigma_{\mathrm{RNEEP,6}}$')
-    ax1.errorbar(np.flip(-vGridSemi), np.flip(mNeepMeanSemi[1, :] * vTNeep), yerr=np.flip(mNeepStdSemi[1, :] * vTNeep), fmt='d',
+    ax1.errorbar(np.flip(-vGridSemi), np.flip(mNeepMeanSemi[1, :]), yerr=np.flip(mNeepStdSemi[1, :] * vTNeep), fmt='d',
                  color=(0.7940, 0.4840, 0.8560), markersize=2, label='$\sigma_{\mathrm{RNEEP,3}}$')
 
 #ax1.errorbar(np.flip(-vGridInterpCoarse), np.flip(vKldSemiAff.mean(axis=1)), yerr=np.flip(vKldSemiAff.std(axis=1)), fmt='-', lw=0.5, color=(0.6350, 0.0780, 0.1840), label='$\sigma_{\mathrm{Aff}}$')  # add to vKld -> vKld[:, 0]

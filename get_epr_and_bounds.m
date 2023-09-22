@@ -3,7 +3,7 @@ function [epr, s_KLD, s_aff, passive] = get_epr_and_bounds(w)
 lamda = sum(w, 1);
 m = size(w, 1);
 w(1:m+1:end) = -lamda;
-p = [0.07756, 0.54848, 0.18698, 0.18698]';
+p = get_steady_state(w);
 
 passive = (w(1, 2) * p(2) - w(2, 1) * p(1)) * log(w(1, 2) * p(2) / (w(2, 1) * p(1)));
 epr = get_epr(w, p);

@@ -54,7 +54,7 @@ mW, nDim, vHiddenStates, timeRes = BaseSystem()
 extForce = np.array([0.15]) #[-2., -1.7, 2.47002] #, 2.77002]
 # NOTE! : RNEEP supported only if script used for 1 external force, and not several!
 
-nIters = 5 # Number of iterations for collecting statistics
+nIters = 3 # Number of iterations for collecting statistics
 
 
 # %% Load model
@@ -76,23 +76,31 @@ for iForce, force in enumerate(extForce): #for iForce, modelCP in enumerate(mode
     for iIter in range(nIters):
         for iLen, len in enumerate(vTrajLengths):
             mWx = pt.CalcW4DrivingForce(mW, extForce[iForce])
-            mCgTrajectory, _, _ = pt.CreateCoarseGrainedTraj(nDim, int(len), mWx, vHiddenStates, timeRes)
+            y = 20.
+            eps = 0.5
+            z = y / 4
+            mWx = np.array([[-90., 10., z, z],
+                           [45., -20., y, y],
+                           [22.5, 5., -(z + y + eps), eps],
+                           [22.5, 5., eps, -(z + y + eps)]])
+            mCgTrajectory, _, _ = pt.CreateCoarseGrainedTraj(nDim, int(len), mWx, vHiddenStates, timeRes, semiCG=True, remap=True)
             sigmaDotKld, T, sigmaDotAff, sigmaDotWtd = pt.CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates)
             mEffectiveLen[iForce, iLen, iIter] = mCgTrajectory.shape[0]
             mEstimatedEPr[iForce, iLen, iIter] = sigmaDotKld #predEntRate / T / sigmaDotKld # normalized
             mEstimatedWtd[iForce, iLen, iIter] = sigmaDotWtd
             mEstimatedAff[iForce, iLen, iIter] = sigmaDotAff
-            mEstimatedPlg[iForce, iLen, iIter] = infEPR.EstimatePluginInf(mCgTrajectory[:, 0], gamma=1) / T
+            mEstimatedPlg[iForce, iLen, iIter] = 0 #infEPR.EstimatePluginInf(mCgTrajectory[:, 0], gamma=1) / T
             mEstimatedRnp[iForce, iLen, iIter], _ = EvaluateModel(model, int(len), extForce[iForce])
             mEstimatedRnp[iForce, iLen, iIter] /= T
         print('Ended Iteration ' + str(iIter) + ' from total of ' + str(nIters) + 'iteration')
 # %% Plot analysis
 
 resFig = plt.figure(0)
+plt.plot(np.array([np.min(mEffectiveLen[iForce].mean(axis=1)), np.max(mEffectiveLen[iForce].mean(axis=1))]), [fullEPR, fullEPR])
 for iForce, _ in enumerate(extForce): #enumerate(modelCPs):
     plt.errorbar(mEffectiveLen[iForce].mean(axis=1), mEstimatedEPr[iForce].mean(axis=1),  yerr=mEstimatedEPr[iForce].std(axis=1)/2, fmt='d-', lw=0.5, color=(0.3010, 0.7450, 0.9330), label='$\sigma_{\mathrm{KLD}}$')#'x='+str(extForce[iForce]))
-    plt.errorbar(mEffectiveLen[iForce].mean(axis=1), mEstimatedPlg[iForce].mean(axis=1), yerr=mEstimatedPlg[iForce].std(axis=1) / 2, fmt='.-', lw=0.5, color=(0.9290, 0.6940, 0.1250), label='$\sigma_{\mathrm{plug}}$')  # 'x='+str(extForce[iForce]))
-    plt.errorbar(mEffectiveLen[iForce].mean(axis=1), mEstimatedRnp[iForce].mean(axis=1), yerr=mEstimatedRnp[iForce].std(axis=1) / 2, fmt='s-', lw=0.5, color=(0.1660, 0.3740, 0.0880), label='$\sigma_{\mathrm{RNEEP}}$')  # 'x='+str(extForce[iForce]))
+    # plt.errorbar(mEffectiveLen[iForce].mean(axis=1), mEstimatedPlg[iForce].mean(axis=1), yerr=mEstimatedPlg[iForce].std(axis=1) / 2, fmt='.-', lw=0.5, color=(0.9290, 0.6940, 0.1250), label='$\sigma_{\mathrm{plug}}$')  # 'x='+str(extForce[iForce]))
+    # plt.errorbar(mEffectiveLen[iForce].mean(axis=1), mEstimatedRnp[iForce].mean(axis=1), yerr=mEstimatedRnp[iForce].std(axis=1) / 2, fmt='s-', lw=0.5, color=(0.1660, 0.3740, 0.0880), label='$\sigma_{\mathrm{RNEEP}}$')  # 'x='+str(extForce[iForce]))
     plt.errorbar(mEffectiveLen[iForce].mean(axis=1), mEstimatedAff[iForce].mean(axis=1),  yerr=mEstimatedAff[iForce].std(axis=1)/2, fmt='^-', lw=0.5, color=(0.6350, 0.0780, 0.1840), label='$\sigma_{\mathrm{aff}}$')#'x='+str(extForce[iForce]))
     plt.errorbar(mEffectiveLen[iForce].mean(axis=1), mEstimatedWtd[iForce].mean(axis=1),  yerr=mEstimatedWtd[iForce].std(axis=1)/2, fmt='v-', lw=0.5, color=(0.4020, 0.545, 0.470), label='$\sigma_{\mathrm{WTD}}$')#'x='+str(extForce[iForce]))
 
@@ -101,7 +109,7 @@ plt.xlabel('Effective trajectory length', fontsize='small')
 plt.ylabel('Entropy Production rate $[s^{-1}]$', fontsize='small')
 # plt.title('EPR vs Trajectory length')
 plt.tick_params(axis="both", labelsize=6)
-plt.legend(prop={'size': 5}, loc=1, title='Full-CG', title_fontsize='xx-small')
+plt.legend(prop={'size': 5}, loc=1, title='Transformed-CG', title_fontsize='xx-small')
 plt.show()
 resFig.set_size_inches((3.38582677*2, 3.38582677))
 resFig.savefig(f'PlotTrajLengthAnalysis.pdf')

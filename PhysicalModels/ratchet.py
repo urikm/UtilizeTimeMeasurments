@@ -1,5 +1,6 @@
 ## Copied from neep github
 import numpy as np
+from numba import njit
 from PhysicalModels.TrajectoryCreation import CreateTrajectory
 import PhysicalModels.PartialTrajectories as pt
 
@@ -296,38 +297,52 @@ def CreateNEEPTrajectory(nTimeStamps=5e4, V=0., fullCg=False, isCG=True, remap=F
     initState = np.random.choice(nDim, 1, p=p_ss(V, T=T, r=r)).item()
     mW = rate_matrix(V, T=T, r=r)
 
-    mCgTrajectory, _ = CreateTrajectory(nDim, nTimeStamps, initState, mW) # Create FR trajectory
+    mTrajectory, _ = CreateTrajectory(nDim, nTimeStamps, initState, mW) # Create FR
     vHiddenStates = np.array([])
     if isCG:
-        mCgTrajectory[:, 0] = mCgTrajectory[:, 0] % 3  # Semi-CG
+        mTrajectory, tauFactorBeforeRemap, vHiddenStates, nDim, nCountHid = CoarseGrainFlashingRatchet(mTrajectory, fullCg=fullCg, remap=remap)
+        vHiddenStates = vHiddenStates[:nCountHid]
 
-        if not fullCg: # in case of semi-CG we want to calculate Tau factor before remaping
-            tauFactorBeforeRemap = mCgTrajectory[:, 1].mean()
-        if fullCg or (not fullCg and remap):
-            # prepare the trajectory -if semiCG make pseudo CG for than remapping. in FullCG it does al the CG
-            trainBuffer = np.ones(mCgTrajectory[:, 0].size)
-            for iStep in range(mCgTrajectory[:, 0].size):
-            # now decimate train and test set
-                # handle special case of first element
-                if iStep == 0:
-                    continue
-                # create mask for train set
-                if mCgTrajectory[iStep-1, 0] == mCgTrajectory[iStep, 0]:
-                    trainBuffer[iStep-1] = 0
-                    mCgTrajectory[iStep, 1] += mCgTrajectory[iStep - 1, 1]
+    return mTrajectory, nDim, vHiddenStates, tauFactorBeforeRemap
 
-        if fullCg:
-            mCgTrajectory = mCgTrajectory[trainBuffer == 1, :]
-            tauFactorBeforeRemap = mCgTrajectory[:, 1].mean()
 
-        vStates = np.unique(mCgTrajectory[:, 0])
-        nDim = vStates.size
+@njit
+def CoarseGrainFlashingRatchet(mCgTrajectory, fullCg=False, remap=False):
+    # Note : the input is actually the full trajectory!
+    mCgTrajectory[:, 0] = mCgTrajectory[:, 0] % 3  # Semi-CG
+
+    if not fullCg: # in case of semi-CG we want to calculate Tau factor before remaping
+        tauFactorBeforeRemap = mCgTrajectory[:, 1].mean()
+    if fullCg:
+        # prepare the trajectory -if semiCG make pseudo CG for than remapping. in FullCG it does al the CG
+        trainBuffer = np.ones(mCgTrajectory[:, 0].size)
+        for iStep in range(mCgTrajectory[:, 0].size):
+        # now decimate train and test set
+            # handle special case of first element
+            if iStep == 0:
+                continue
+            # create mask for train set
+            if mCgTrajectory[iStep-1, 0] == mCgTrajectory[iStep, 0]:
+                trainBuffer[iStep-1] = 0
+                mCgTrajectory[iStep, 1] += mCgTrajectory[iStep - 1, 1]
+
+    if fullCg:
+        mCgTrajectory = mCgTrajectory[trainBuffer == 1, :]
+        tauFactorBeforeRemap = mCgTrajectory[:, 1].mean()
+
+    vStates = np.unique(mCgTrajectory[:, 0])
+    if remap and not fullCg:  # for each state we need to repeat the remap process
+        nCountHid = 0
+        vHiddenStates = np.zeros(1000, dtype=np.float64)
+        for iHid in vStates:
+            mCgTrajectory, nDim, vNewHidden, countAdded = pt.RemapStates(mCgTrajectory, iHid, baseState=int((iHid + 1) * 100))
+            # Add the new vHiddenStates
+            vHiddenStates[nCountHid:nCountHid+countAdded] = vNewHidden[:countAdded]
+            nCountHid += countAdded
+        nDim = np.unique(mCgTrajectory[:, 0]).size
+    else:
         vHiddenStates = vStates
-        if remap and not fullCg:  # for each state we need to repeat the remap process
-            vHiddenStates = np.array([])
-            for iHid in vStates:
-                mCgTrajectory, nDim, vNewHidden, countAdded = pt.RemapStates(mCgTrajectory, iHid, baseState=int((iHid + 1) * 100))
-                # Add the new vHiddenStates
-                vHiddenStates = np.concatenate((vHiddenStates, vNewHidden[:countAdded]), axis=0)
-            nDim = np.unique(mCgTrajectory[:, 0]).size
-    return mCgTrajectory, nDim, vHiddenStates, tauFactorBeforeRemap
+        nDim = vStates.size
+        nCountHid = nDim
+
+    return mCgTrajectory, tauFactorBeforeRemap, vHiddenStates, nDim, nCountHid

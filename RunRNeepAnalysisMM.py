@@ -47,11 +47,11 @@ def parse_args():
                         help='weight decay')
     parser.add_argument('--batch_size', '-b', default=4096, type=int,
                         help='Training batch size')
-    parser.add_argument('--length', '-n', default=5e7, type=int,
+    parser.add_argument('--length', '-n', default=1e7, type=int,
                         help='Length of trajectory')
     parser.add_argument('--epochs', '-e', default=20, type=int,
                         help='Number of epochs to run')
-    parser.add_argument('--seq_list', '-l', default='3,16,32,64,128', type=str,
+    parser.add_argument('--seq_list', '-l', default='3,16,128', type=str,
                         help='Input sequence size to check')
     parser.add_argument('--ext_forces', '-f',
                         choices=('coarse', 'full', 'nearSt', 'nearSt', 'zoomed', 'extended', 'RNEEPadd'),
@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     # Fetch external forces grid
     # -----------Grid----------------
-    res = 0.3
+    res = 0.1
     resInterp = 0.03
     vMu = np.array([[3]])
     vFl = np.expand_dims(np.arange(0.5 + res / 2, 1 + res / 2, res), 1)

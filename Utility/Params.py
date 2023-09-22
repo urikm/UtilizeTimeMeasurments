@@ -2,11 +2,14 @@ import numpy as np
 import PhysicalModels.UtilityTraj as ut
 
 def GenRateMat(nDim, limit):
-    mW = np.random.uniform(limit, size=(nDim,nDim))
+    mW = np.random.uniform(limit, size=(nDim, nDim))
+    #mW[3, 2] = np.random.uniform(limit / 10)
+    #mW[2, 3] = np.random.uniform(limit / 10)
     for k in range(nDim):
         mW[k,k] = mW[k,k] - np.sum(mW[:,k])
+
     vHiddenStates = np.array([2, 3])  # states 3 and 4 for 4-D state sytem
-    timeRes = 0.001
+    timeRes = 0.01
     return mW, nDim, vHiddenStates, timeRes
 
 def BaseSystem():

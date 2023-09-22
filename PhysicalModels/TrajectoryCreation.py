@@ -11,7 +11,7 @@ Created on Sat Oct 31 18:23:27 2020
 # %% Imports
 import time
 import numpy as np
-import random as rd
+from random import choices
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 from Utility.Params import GenRateMat
@@ -24,20 +24,21 @@ from numba import njit
 @njit
 def CreateTrajectory(nDim, nTimeStamps, initState, *args):
     # NOTE: 1st *args should be mW and it's optional!
+    nDim = int(nDim)
     ## Inits   
     if len(args) == 0:
         # Init adjacency matrix
         mW = GenRateMat(nDim)
-        mcFlag = True
+        mcFlag = True  # True
     elif len(args) == 1:
         mW = args[0]
-        mcFlag = True
+        mcFlag = True  # True
     elif len(args) == 2:
         mW = args[0]
         mcFlag = args[1]
 
     mDiag = np.multiply(np.eye(nDim), mW)  #For competability with jit
-    mP = (mW-mDiag)/np.abs(np.dot(mDiag, np.ones(nDim)))  # calculate discrete PDF for states jumps
+    mP = np.divide((mW-mDiag), np.abs(np.dot(mDiag, np.ones(nDim))))  # calculate discrete PDF for states jumps
     mTrajectory = np.zeros((nTimeStamps, 2))
 
     currState = initState
@@ -47,18 +48,18 @@ def CreateTrajectory(nDim, nTimeStamps, initState, *args):
     
     # For loop to create trajectory (according to Gillespie Algorithm)
     for iStep in range(nTimeStamps):
-        # Using the calculated PDF randomize jump
+        # # Using the calculated PDF randomize jump
         if not mcFlag:
             pass
-            # nextState = np.random.choice(nDim,1,p=mP[:,currState])
-            # nextState = np.array(rd.choices(range(nDim),weights=mP[:,currState].reshape(nDim)))
-            ### from neep paper
+            # nextState = np.random.choice(nDim, 1, p=list(mP[:, currState]))[0]
+            #nextState = np.array(choices(range(nDim), weights=mP[:, currState].reshape(nDim)))
+        # ### from neep paper
         else:
             mc = np.random.uniform(0.0, 1.0)
             interval = np.cumsum(mP[:, currState])
             nextState = np.sum(interval < mc)
 
-    ### This implementation is jit competible - if removing jit - DONT USE THIS!
+        ### This implementation is jit competible - if removing jit - DONT USE THIS!
         mTrajectory[iStep, 1] = np.random.exponential(1 / abs(mW[currState, currState]))
     ###
 
@@ -73,7 +74,7 @@ def CreateTrajectory(nDim, nTimeStamps, initState, *args):
     # # randomize waiting times   - optimized without using jit!!!
     # for iState in range(nDim):
     #     nCounts = int(vCount[iState])
-    #     waitingTime = np.random.exponential(1/abs(mW[iState,iState]), nCounts)
+    #     waitingTime = np.random.exponential(1/abs(mW[iState, iState]), nCounts)
     #     idx = np.int32(mMem[iState, 0:nCounts])
     #     mTrajectory[idx, 1] = waitingTime
     # ###s
