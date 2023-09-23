@@ -6,11 +6,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+import torch
+import torch.utils.data as dat
+from torch.optim import Adam
+
 from Utility.Params import GenRateMat
 from PhysicalModels.PartialTrajectories import CreateCoarseGrainedTraj, CalcKLDPartialEntropyProdRate, RemapStates
 from PhysicalModels.UtilityTraj import EntropyRateCalculation
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import Utility.FindPluginInfEPR as infEPR
+import LearningModels.Neep as neep
+from Dataset import CGTrajectoryDataSet
+
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # Define the sweep
 nIterations = 1
@@ -23,7 +31,7 @@ maxNumStates = 12  # for validty of systems
 savedRateMatrix = []
 savedKldTrns = []
 savedPlgnScg = []
-savedPlgnTrns = []
+savedNeepScg = []
 savedFullEpr = []
 compatibleFlag = np.ones((nIterations,))
 numStates = np.zeros((nIterations,))
@@ -70,18 +78,52 @@ while iIter < nIterations:
 
     vKldSemi, Tsemi2, vKldSemiAff, _ = CalcKLDPartialEntropyProdRate(mCgTraj, vNewHidden)
     savedKldTrns.append(vKldSemi)
-    savedPlgnTrns.append(infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=0) / np.mean(mCgTraj[:, 1]))
+    #savedPlgnTrns.append(infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=0) / np.mean(mCgTraj[:, 1]))
 
-    if savedKldTrns[-1] <= savedFullEpr[-1]:
-        savedFullEpr.pop()
-        savedKldTrns.pop()
-        savedPlgnScg.pop()
-        savedPlgnTrns.pop()
-        savedRateMatrix.pop()
-        nIgnored += 1
-    else:
-        numStates[iIter] = vNewHidden.size + 2
-        iIter += 1
+    # Save NEEP
+    seqSize = 128
+    # Create Datasets - special mode that generate 4-states
+    trainDataSet = CGTrajectoryDataSet(seqLen=seqSize, batchSize=20, lenTrajFull=trajLength,
+                                       extForce=-1e4, rootDir='StoredDataSetsCompare', semiCG=True)
+    T = trainDataSet.timeFactor
+
+    k = 0
+    trainLoader = torch.utils.data.DataLoader(trainDataSet)
+
+    model = neep.RNEEP()
+    outFileadd = ''
+    # if device == 'cuda:0':
+    #     model = torch.nn.DataParallel(model,device_ids=list(range(torch.cuda.device_count())))
+    model.to(device)
+    # defining the optimizer
+    # optimizeurikr = SGD(model.parameters(),lr=vLrate[k])
+    optimizer = Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
+    trainRnn = neep.make_trainRnn(model, optimizer, seqSize, device)
+    bestLoss = 1e3
+    bestEp = -1e4
+
+    # Define sampler - train and validation
+    for epoch in range(int(10)):
+        tic = time.time()
+        bestLossEpoch, epRate, bestEpErr = trainRnn(trainLoader, trainLoader, epoch)
+        toc = time.time()
+        if bestLossEpoch < bestLoss:
+            bestEp = epRate / T
+            bestLoss = bestLossEpoch
+        print('Elapsed time of Epoch ' + str(epoch + 1) + ' is: ' + str(toc - tic) + " ; KLD est: " + str(
+            bestEp))
+    savedNeepScg.append(bestEp)
+
+if savedKldTrns[-1] <= savedFullEpr[-1]:
+    savedFullEpr.pop()
+    savedKldTrns.pop()
+    savedPlgnScg.pop()
+    savedNeepScg.pop()
+    savedRateMatrix.pop()
+    nIgnored += 1
+else:
+    numStates[iIter] = vNewHidden.size + 2
+    iIter += 1
 
 
 
@@ -89,9 +131,9 @@ while iIter < nIterations:
 # %% Statistics no the results
 
 # First convert all results to numpy array
-mResults = pd.DataFrame(np.array([savedFullEpr, savedPlgnScg, savedKldTrns, savedPlgnTrns]).T,
-                           columns=['FullEpr',  'ScgPlgn', 'TrnsKLD', 'TrnsPlgn'])
-
+mResults = pd.DataFrame(np.array([savedFullEpr, savedPlgnScg, savedKldTrns, savedNeepScg]).T,
+                           columns=['FullEpr',  'ScgPlgn', 'TrnsKLD', 'NeepScg'])
+mResults.to_csv('StatisticalCompare.csv')
 # Count overestimation
 mOverEst = np.expand_dims(mResults.values[:, 0], 1).repeat(len(mResults.values[0, 1:]), 1) - mResults.values[:, 1:]
 vOverEstSys = (mOverEst < 0).sum(1)
@@ -114,10 +156,10 @@ print('KLD transformed is higher than Plugin-SCG count: ' + str((mResTmp[:, 0] <
 
 
 # %% Visualize comparison
-plt.scatter(mResults.TrnsKLD, mResults.TrnsPlgn, 8)
-plt.plot([0, max(mResults.TrnsKLD.max(), mResults.TrnsPlgn.max())], [0, max(mResults.TrnsKLD.max(), mResults.TrnsPlgn.max())], 'k')
+plt.scatter(mResults.TrnsKLD, mResults.NeepScg, 8)
+plt.plot([0, max(mResults.TrnsKLD.max(), mResults.NeepScg.max())], [0, max(mResults.TrnsKLD.max(), mResults.NeepScg.max())], 'k')
 plt.xlabel("TrnsKLD")
-plt.ylabel("TrnsPLGN")
+plt.ylabel("NeepScg")
 plt.show()
 
 plt.scatter(mResults.TrnsKLD, mResults.ScgPlgn, 8)
@@ -126,10 +168,10 @@ plt.xlabel("TrnsKLD")
 plt.ylabel("ScgPLGN")
 plt.show()
 
-plt.scatter(mResults.ScgPlgn, mResults.TrnsPlgn, 8)
-plt.plot([0, max(mResults.ScgPlgn.max(), mResults.TrnsPlgn.max())], [0, max(mResults.ScgPlgn.max(), mResults.TrnsPlgn.max())], 'k')
+plt.scatter(mResults.ScgPlgn, mResults.NeepScg, 8)
+plt.plot([0, max(mResults.ScgPlgn.max(), mResults.NeepScg.max())], [0, max(mResults.ScgPlgn.max(), mResults.NeepScg.max())], 'k')
 plt.xlabel("ScgPLGN")
-plt.ylabel("TrnsPLGN")
+plt.ylabel("NeepScg")
 plt.show()
 
 plt.scatter(mResults.FullEpr, mResults.TrnsKLD, 8)
@@ -138,10 +180,10 @@ plt.xlabel("FullEpr")
 plt.ylabel("TrnsKLD")
 plt.show()
 
-plt.scatter(mResults.FullEpr, mResults.TrnsPlgn, 8)
-plt.plot([0, max(mResults.FullEpr.max(), mResults.TrnsPlgn.max())], [0, max(mResults.FullEpr.max(), mResults.TrnsPlgn.max())], 'k')
+plt.scatter(mResults.FullEpr, mResults.NeepScg, 8)
+plt.plot([0, max(mResults.FullEpr.max(), mResults.NeepScg.max())], [0, max(mResults.FullEpr.max(), mResults.TrnsPlgn.max())], 'k')
 plt.xlabel("FullEpr")
-plt.ylabel("TrnsPLGN")
+plt.ylabel("NeepScg")
 plt.show()
 
 plt.scatter(mResults.FullEpr, mResults.ScgPlgn, 8)

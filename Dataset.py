@@ -25,7 +25,7 @@ from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import PhysicalModels.TrajectoryCreation as ct #CreateTrajectory, EstimateTrajParams
 import PhysicalModels.PartialTrajectories as pt
 from RNeepSampler import CartesianSeqSampler as CSS
-from Utility.Params import BaseSystem, DataSetCreationParams, MolecularMotor
+from Utility.Params import BaseSystem, DataSetCreationParams, MolecularMotor, GenRateMat
 # This import is written very quickly
 from Results.PlotResultsAnalysisPaper_MM import CreateMMTrajectory
 
@@ -57,13 +57,18 @@ class CGTrajectoryDataSet(Dataset):
 
         if not loadSet:  # save the data
             if isBaseSystem:
-                mW, nDim, _, timeRes = BaseSystem()
-                # Calculate target EPR of the full system
-                mWx = pt.CalcW4DrivingForce(mW, self.extForce)  # Calculate W matrix after applying force
-                vP0 = np.random.uniform(size=(nDim))
-                vP0 = vP0 / sum(vP0)
+                if extForce == -1e4:
+                    mWx, nDim, vHiddenStates, timeRes = GenRateMat(4, 50)
+                    vP0 = np.ones((nDim, )) / nDim
+                else:
+                    mW, nDim, _, timeRes = BaseSystem()
+                    # Calculate target EPR of the full system
+                    mWx = pt.CalcW4DrivingForce(mW, self.extForce)  # Calculate W matrix after applying force
+                    vP0 = np.random.uniform(size=(nDim))
+                    vP0 = vP0 / sum(vP0)
                 _, vPiX, _, _ = MESolver(nDim, vP0, mWx, timeRes)
                 self.targetEPR = EntropyRateCalculation(nDim, mWx, vPiX)
+                self.mWx = mWx
                 # Create and save dataset. Updates targerKLD and nBatchedSamples attributes
                 self.targetKLD, self.nBatchedSamples, self.timeFactor = \
                     self.CreateRNeepDataSet(lenTrajFull, mode, self.DataSetDir, semiCG=semiCG)
@@ -117,8 +122,7 @@ class CGTrajectoryDataSet(Dataset):
             os.makedirs(saveDir)
 
         # Create Coarse-Grained trajectory
-        mWx = pt.CalcW4DrivingForce(mW, self.extForce)
-        dataSet, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, lenTrajFull, mWx, vHiddenStates, timeRes, semiCG=semiCG)
+        dataSet, nCgDim, vHiddenStates = pt.CreateCoarseGrainedTraj(nDim, lenTrajFull, self.mWx, vHiddenStates, timeRes, semiCG=semiCG)
         kldEstimator, T, _, _ = pt.CalcKLDPartialEntropyProdRate(dataSet, vHiddenStates)
 
         dataSet = torch.from_numpy(dataSet[:, 0]).float()

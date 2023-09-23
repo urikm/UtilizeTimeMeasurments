@@ -183,7 +183,7 @@ if __name__ == '__main__':
 
     # Plot FCG estimators
     plt.errorbar((vGridInterpCoarse), (vKld2.mean(axis=1)), yerr=(vKld2.std(axis=1)), fmt='-.', lw=0.5, color=(0.3010, 0.7450, 0.9330), label='$\sigma_{\mathrm{KLD-FCG}}$ ')  # add to vKld -> vKld[:, 0]
-    
+
     if addPlugin:
         plt.errorbar(vGridInterpCoarse, (vPluginInf.mean(axis=1)), yerr=(vPluginInf.std(axis=1)), fmt='-.', lw=0.5,
                      color=(0.9290, 0.6940, 0.1250), label='$\sigma_{\mathrm{plug}}$')
