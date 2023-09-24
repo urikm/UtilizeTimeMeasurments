@@ -207,4 +207,55 @@ def make_trainRnn(model,optimizer,seqSize,device):
             print('Epoch : ', iEpoch+1, '\t' 'Best Valid Loss :', bestValidLoss, '\t' 'Best Valid EPR:', bestEpRate)
         
         return bestValidLoss, bestEpRate, bestEpErr
-    return trainRnn  
+
+    return trainRnn
+
+
+def make_trainNoValid(model, optimizer, seqSize, device):
+    def trainRnn(trainLoader, iEpoch):
+
+        # avgTrainLosses = []
+        bestLoss = 1e3  # Init
+        bestEpRate = 0
+        bestEpErr = 1e6
+
+        avgLosses = 0
+        avgScores = []
+
+        for x_batch, full_epr, _ in trainLoader:
+            model.train()
+
+            x_batch = x_batch.squeeze().long().to(device)
+            # prediction for training
+            # print("DBG ; x_batch: "+str(x_batch)+" ; shape: "+str(x_batch.shape))
+            entropy_train = model(x_batch)
+
+            # clearing the Gradients of the model parameters
+            # print("Out Model Train: Input size " + str(x_batch.size()) + " ; Output size: " + str(entropy_train.size()))
+            optimizer.zero_grad()
+            # computing the training
+            loss_train = ((-entropy_train + torch.exp(-entropy_train))).mean()
+
+            # computing the updated weights of all the model parameters
+            loss_train.backward()
+            optimizer.step()
+
+            avgLosses += loss_train
+            avgScores.append(entropy_train)
+
+        avgValScores = torch.cat(avgScores).squeeze()
+        predEntRate = torch.mean(avgValScores) / (seqSize - 1)
+        avgValLoss = avgLosses / len(trainLoader)
+        # print('DBG , pred ERP: ' + str(predEntRate))
+        # print('DBG , last batch: ' + str(x_val)+" ; Shape: "+str(x_val.shape))
+        if avgValLoss <= bestLoss:
+            bestEpRate = predEntRate  # .cpu().numpy()
+            # print("DBG , bestEp Rate: "+str(bestEpRate))
+            y_valCpu = full_epr
+            # print("DBG , y_valCpu: "+str(y_valCpu))
+            bestEpErr = torch.abs(bestEpRate - y_valCpu) / y_valCpu
+            bestValidLoss = avgValLoss
+
+        return bestLoss, bestEpRate, bestEpErr
+
+    return trainRnn

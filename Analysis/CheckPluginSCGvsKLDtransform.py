@@ -105,7 +105,7 @@ while iIter < nIterations:
     # defining the optimizer
     # optimizeurikr = SGD(model.parameters(),lr=vLrate[k])
     optimizer = Adam(model.parameters(), lr=1e-4, weight_decay=1e-5)
-    trainRnn = neep.make_trainRnn(model, optimizer, seqSize, device)
+    trainRnn = neep.make_trainNoValid(model, optimizer, seqSize, device)
     bestLoss = 1e3
     bestEp = -1e4
 
