@@ -332,8 +332,8 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
                 if (jState in vHiddenStates) and (iState != kState):
                     vPSIijk = mWtdBuffer[dMap[iState], dMap[jState], dMap[kState]]
                     vPSIkji = mWtdBuffer[dMap[kState], dMap[jState], dMap[iState]]
-                    #%if vPSIijk.max() == eps or vPSIkji.max() == eps:  #ADD: or np.isnan(vPSIijk).sum() > 0 or np.isnan(vPSIkji).sum() > 0 :
-                    #   continue
+                    if vPSIijk.max() == eps or vPSIkji.max() == eps:  #ADD: or np.isnan(vPSIijk).sum() > 0 or np.isnan(vPSIkji).sum() > 0 :
+                       continue
                     #kldPsi = np.sum(np.multiply(vPSIijk, np.log(vPSIijk) - np.log(vPSIkji)))
                     kldPsi = np.trapz(np.multiply(vPSIijk, np.log(vPSIijk) - np.log(vPSIkji)), vGridDest)
                     # sigmaDotWtd += (mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * vR[dMap[iState]] / T) * kldPsi

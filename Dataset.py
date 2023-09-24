@@ -278,7 +278,7 @@ class CGTrajectoryDataSetMM(Dataset):
 
         # Dataset descriptor
         dTrajTemplate = {'seqLen': self.seqLen, 'batchSize': self.batchSize, 'nBatchedSamples': -1,
-                         'extForce': self.extForce, 'targetEPR': self.targetEPR, 'targetKLD': self.targetKLD,
+                         'mu': self.mu, 'F': self.F, 'targetEPR': self.targetEPR, 'targetKLD': self.targetKLD,
                          'timeFactor':-1, 'isBaseSystem': self.isBaseSystem}  # the structure in which the trajectory will be saves per file
 
         try:
@@ -288,7 +288,7 @@ class CGTrajectoryDataSetMM(Dataset):
             os.makedirs(saveDir)
 
         # Create Coarse-Grained trajectory
-        dataSet, nCgDim, vHiddenStates = CreateMMTrajectory(self.mu, self.F, int(lenTrajFull), fullCg=not(semiCG), isCG=True, remap=False)
+        dataSet, nCgDim, vHiddenStates, _ = CreateMMTrajectory(self.mu, self.F, int(lenTrajFull), fullCg=not(semiCG), isCG=True, remap=False)
         kldEstimator, T, _, _ = pt.CalcKLDPartialEntropyProdRate(dataSet, vHiddenStates)
 
         dataSet = torch.from_numpy(dataSet[:, 0]).float()

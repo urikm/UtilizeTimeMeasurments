@@ -10,7 +10,7 @@ import torch
 import torch.utils.data as dat
 from torch.optim import Adam
 
-from Utility.Params import GenRateMat
+#from Utility.Params import GenRateMat
 from PhysicalModels.PartialTrajectories import CreateCoarseGrainedTraj, CalcKLDPartialEntropyProdRate, RemapStates
 from PhysicalModels.UtilityTraj import EntropyRateCalculation
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
@@ -20,6 +20,13 @@ from Dataset import CGTrajectoryDataSet
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
+def GenRateMat(nDim, limit):
+	mW = np.random.uniform(limit, size=(nDim, nDim))
+	for k in range(nDim):
+		mW[k, k] = mW[k, k] - np.sum(mW[:, k])
+	vHiddenStates = np.array([2, 3])
+	timeres = 0.01
+	return mW, nDim, vHiddenStates, timeRes
 # Define the sweep
 nIterations = 1
 maxGenRate = 50

@@ -49,7 +49,7 @@ def parse_args():
                         help='Training batch size')
     parser.add_argument('--length', '-n', default=1e7, type=int,
                         help='Length of trajectory')
-    parser.add_argument('--epochs', '-e', default=20, type=int,
+    parser.add_argument('--epochs', '-e', default=10, type=int,
                         help='Number of epochs to run')
     parser.add_argument('--seq_list', '-l', default='3,16,128', type=str,
                         help='Input sequence size to check')
@@ -93,10 +93,10 @@ if __name__ == '__main__':
 
     # Fetch external forces grid
     # -----------Grid----------------
-    res = 0.1
+    res = 0.5
     resInterp = 0.03
-    vMu = np.array([[3]])
-    vFl = np.expand_dims(np.arange(0.5 + res / 2, 1 + res / 2, res), 1)
+    vMu = np.array([[1,2,3]])
+    vFl = np.expand_dims(np.arange(-1 + res / 2, 1 + res / 2, res), 1)
     #vFlinterp = np.expand_dims(np.arange(-1 + resInterp / 2, 1 + resInterp / 2, resInterp), 1)
     # vFlinterp = vFlinterp[1:]  # TODO remove line
     nMu = vMu.size
