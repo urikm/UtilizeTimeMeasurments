@@ -245,16 +245,16 @@ def make_trainNoValid(model, optimizer, seqSize, device):
 
         avgValScores = torch.cat(avgScores).squeeze()
         predEntRate = torch.mean(avgValScores) / (seqSize - 1)
-        avgValLoss = avgLosses / len(trainLoader)
+        avgLoss = avgLosses / len(trainLoader)
         # print('DBG , pred ERP: ' + str(predEntRate))
         # print('DBG , last batch: ' + str(x_val)+" ; Shape: "+str(x_val.shape))
-        if avgValLoss <= bestLoss:
+        if avgLoss <= bestLoss:
             bestEpRate = predEntRate  # .cpu().numpy()
             # print("DBG , bestEp Rate: "+str(bestEpRate))
             y_valCpu = full_epr
             # print("DBG , y_valCpu: "+str(y_valCpu))
             bestEpErr = torch.abs(bestEpRate - y_valCpu) / y_valCpu
-            bestValidLoss = avgValLoss
+            bestLoss = avgLoss
 
         return bestLoss, bestEpRate, bestEpErr
 

@@ -315,7 +315,7 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
                 if (jState in vHiddenStates) & (iState != kState):
                     if mWtd[countWtd].size >= 1000:
                         # Silverman's rule of thumb - The internal implementation is buggy so did it myself for now
-                        bw = 1.06 * min(mWtd[countWtd].std(), (np.percentile(mWtd[countWtd], 75) - np.percentile(mWtd[countWtd], 25)) / 1.34) \
+                        bw = 0.9 * min(mWtd[countWtd].std(), (np.percentile(mWtd[countWtd], 75) - np.percentile(mWtd[countWtd], 25)) / 1.34) \
                             * mWtd[countWtd].size**(-1/5)
                         kde = KD(bandwidth=bw)
                         kde.fit(mWtd[countWtd][:, None])

@@ -14,3 +14,4 @@ __pycache__/
 *.txt
 *.pdf
 venv/
+*.csv

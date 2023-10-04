@@ -15,7 +15,7 @@ from PhysicalModels.UtilityTraj import EntropyRateCalculation
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 
 # Define the sweep
-nIterations = 100
+nIterations = 5
 maxGenRate = 50
 trajLength = 1e7
 nDim = 4
@@ -45,6 +45,13 @@ for iIter in range(nIterations):
                    [45., -20., y, y],
                    [22.5, 5., -(z + y + eps), eps],
                    [22.5, 5., eps, -(z + y + eps)]])
+
+    mW = np.array([[-3, 1., 0., 1.],
+                   [2., -2., 1., 0.],
+                   [0., 1., -2., iIter + 0.1],
+                   [1., 0., 1., -(iIter + 0.1 + 1)]])
+    timeRes = 0.05
+
     vHiddenStates = []
     # Find the steady state
     vP0 = np.ones((nDim, )) / nDim  # np.array([0.25,0.25,0.25,0.25])
@@ -78,8 +85,8 @@ for iIter in range(nIterations):
 # %% Statistics no the results
 
 # First convert all results to numpy array
-mResults = pd.DataFrame(np.array([savedFullEpr, savedKld, savedFullEprEst]).T,
-                           columns=['FullEpr', 'KLD', 'FullEprEst'])
+mResults = pd.DataFrame(np.array([savedFullEpr, savedKld]).T,
+                           columns=['FullEpr', 'KLD'])
 
 # Count overestimation
 mOverEst = np.expand_dims(mResults.values[:, 0], 1).repeat(len(mResults.values[0, 1:]), 1) - mResults.values[:, 1:]

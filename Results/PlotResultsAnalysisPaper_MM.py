@@ -45,6 +45,17 @@ nFlinterp = vFlinterp.size
 vGridInterpCoarse = np.reshape((vMu.repeat(nFl, 0) + vFl.repeat(nMu, 1)).T, -1)
 vGridInterp = np.reshape((vMu.repeat(nFlinterp, 0) + vFlinterp.repeat(nMu, 1)).T, -1)
 
+# Addition for the NEEP
+vMuSemi = np.array([[1, 2, 3]])
+resSemi = 0.5
+vFlSemi = np.expand_dims(np.arange(-1 + resSemi / 2, 1 + resSemi / 2, resSemi), 1)
+# vFlinterp = np.expand_dims(np.arange(-1 + resInterp / 2, 1 + resInterp / 2, resInterp), 1)
+# vFlinterp = vFlinterp[1:]  # TODO remove line
+nMuSemi = vMuSemi.size
+nFlSemi = vFlSemi.size
+
+vGridSemi = np.reshape((vMuSemi.repeat(nFlSemi, 0) + vFlSemi.repeat(nMuSemi, 1)).T, -1)
+
 
 # %% Create Flashing Ratchet CG trajectory  ;   Note: deprecates use of simulation
 def CreateMMTrajectory(mu, F, nTimeStamps, fullCg=False, isCG=True, remap=False):
@@ -154,12 +165,43 @@ if __name__ == '__main__':
                     mCgTraj, _, vHiddenStatesS, tauFactor = CreateMMTrajectory(mu, F, int(trajlength), fullCg=False, isCG=True, remap=False)
                     vPluginInfSemi[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=0) / np.mean(mCgTraj[:, 1])
 
+    pathWoTime = 'Analysis_MM_23_09_28'
+    subFolderSemi = 'AnalysisMM_'  # 'AnalysisFullSemi_'
 
+    ## TODO : detele its for DEBUG
+    nRunsSemi = 10  # number of runs for collectiong statistics
+    nSeqsSemi = 3  # number of different seq size input - 3,16,32,64,128
+    nLastSemi = np.size(vGridSemi) - 1
+    if addSemiCG:
+        print("Plotting RNEEP results without time data - Semi coarse grained")
+        specialPath = '_x_' + str(nLastSemi, )
+        mNeepRawSemi = np.zeros([nSeqsSemi, nLastSemi + 1, nRunsSemi])
+        mNeepSemi = np.zeros([nSeqsSemi, nLastSemi + 1, nRunsSemi])
+        vKldSemi = np.ones([nLastSemi + 1, nRunsSemi])
+        for iRun in range(1, nRunsSemi + 1):
+            with open(pathWoTime + os.sep + subFolderSemi + str(iRun) + os.sep + 'vKld' + specialPath + '.pickle',
+                      'rb') as handle:
+                vKldSemi[:, iRun - 1 - 10] = pickle.load(handle)
+            with open(pathWoTime + os.sep + subFolderSemi + str(iRun) + os.sep + 'mNeep' + specialPath + '.pickle',
+                      'rb') as handle:
+                mNeepRawSemi[:, :, iRun - 1 - 10] = pickle.load(handle)
+
+        for i in range(mNeepSemi.shape[1]):
+            mNeepSemi[:, i, :] = mNeepRawSemi[:, i, :]
+        mNeepMeanSemi = np.mean(mNeepSemi, axis=2)
+        mNeepStdSemi = np.std(mNeepSemi, axis=2)
 
 
     # %% Plot
     # TODO : grid axes are flipped due to convention discrepancy with 2017 Gili's paper. need to first CalcW4DrivingForce, run all the estimators again and than we can get rid of the flipping od the axes
     resFig = plt.figure(0)
+
+    # Save buffers
+    vFull_Orig = vFull
+    vPluginInfSemi_Orig = vPluginInfSemi
+    vKldSemi2_Orig = vKldSemi2
+    vKld2_Orig = vKld2
+    vPluginInf_Orig = vPluginInf
 
     # Making it look better by disconnecting branches
     for iMu in range(nMu - 1):
@@ -174,19 +216,30 @@ if __name__ == '__main__':
     plt.plot(vGridInterp, vFull, linestyle='-', color=(0.6350, 0.0780, 0.1840), label='$\sigma_{\mathrm{tot}}$')
 
     # Plot S-CG estimators
-    plt.errorbar(vGridInterpCoarse, (vKldSemi2.mean(axis=1)), yerr=(vKldSemi2.std(axis=1)), fmt='-.', lw=0.5, color=(0, 0.4470, 0.7410), label='$\sigma_{\mathrm{KLD-SCG}}$')  # add to vKld -> vKld[:, 0]
+    plt.errorbar(vGridInterpCoarse, (vKldSemi2.mean(axis=1)), yerr=(vKldSemi2.std(axis=1)), fmt='-.', lw=0.5, color=(0, 0.4470, 0.7410), label='$\sigma_{\mathrm{KLD}}$')  # add to vKld -> vKld[:, 0]
 
     if addPlugin:
         plt.errorbar(vGridInterpCoarse, (vPluginInfSemi.mean(axis=1)), yerr=(vPluginInfSemi.std(axis=1)), fmt='-.', lw=0.5,
                      color=(0.8500, 0.3250, 0.0980), label='$\sigma_{\mathrm{plug}}$')
 
+    vFiltNeep = [1,2,5,6,9,10]
+    if addSemiCG:
+        plt.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[nSeqsSemi - 1, vFiltNeep]),
+                     yerr=(mNeepStdSemi[nSeqsSemi - 1, vFiltNeep] ), fmt='d',
+                     color=(0.2940, 0.1140, 0.3560), markersize=5, label='$\sigma_{\mathrm{RNEEP,128}}$')
+        plt.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[2, vFiltNeep]), yerr=(mNeepStdSemi[2, vFiltNeep] ),
+                     fmt='d',
+                     color=(0.4940, 0.2840, 0.5560), markersize=4, label='$\sigma_{\mathrm{RNEEP,16}}$')
+        plt.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[1, vFiltNeep]), yerr=(mNeepStdSemi[1, vFiltNeep] ),
+                     fmt='d',
+                     color=(0.7940, 0.4840, 0.8560), markersize=2, label='$\sigma_{\mathrm{RNEEP,3}}$')
 
     # Plot FCG estimators
     plt.errorbar((vGridInterpCoarse), (vKld2.mean(axis=1)), yerr=(vKld2.std(axis=1)), fmt='-.', lw=0.5, color=(0.3010, 0.7450, 0.9330), label='$\sigma_{\mathrm{KLD-FCG}}$ ')  # add to vKld -> vKld[:, 0]
 
     if addPlugin:
         plt.errorbar(vGridInterpCoarse, (vPluginInf.mean(axis=1)), yerr=(vPluginInf.std(axis=1)), fmt='-.', lw=0.5,
-                     color=(0.9290, 0.6940, 0.1250), label='$\sigma_{\mathrm{plug}}$')
+                     color=(0.9290, 0.6940, 0.1250), label='$\sigma_{\mathrm{plug-FCG}}$')
 
 
 

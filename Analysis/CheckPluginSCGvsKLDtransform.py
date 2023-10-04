@@ -29,7 +29,7 @@ def GenRateMat(nDim, limit):
 	return mW, nDim, vHiddenStates, timeRes
 # Define the sweep
 nIterations = 1
-maxGenRate = 50
+maxGenRate = 500
 trajLength = 1e7
 nDim = 4
 maxNumStates = 12  # for validty of systems
@@ -44,7 +44,7 @@ compatibleFlag = np.ones((nIterations,))
 numStates = np.zeros((nIterations,))
 nDumpedSystems = 0
 
-# run over all systems, create trajectory and calculate the plugin and the KLD on the transform
+# %% run over all systems, create trajectory and calculate the plugin and the KLD on the transform
 # for iIter in range(nIterations):
 iIter = 0
 nIgnored = 0
@@ -141,7 +141,11 @@ else:
 mResults = pd.DataFrame(np.array([savedFullEpr, savedPlgnScg, savedKldTrns, savedNeepScg]).T,
                            columns=['FullEpr',  'ScgPlgn', 'TrnsKLD', 'NeepScg'])
 mResults.to_csv('StatisticalCompare.csv')
-# Count overestimation
+
+# %% Un-comment if you want to read saved data
+# mResults = pd.read_csv("StatisticalCompare.csv")
+
+# %% Count overestimation
 mOverEst = np.expand_dims(mResults.values[:, 0], 1).repeat(len(mResults.values[0, 1:]), 1) - mResults.values[:, 1:]
 vOverEstSys = (mOverEst < 0).sum(1)
 print('Overestimated systems: ' + str((vOverEstSys > 0).sum()) + ' [' + str((vOverEstSys > 0).mean() * 100) + '%]')
@@ -162,40 +166,48 @@ print("\n")
 print('KLD transformed is higher than Plugin-SCG count: ' + str((mResTmp[:, 0] < mResTmp[:, 1]).sum()) + ' [' + str((mResTmp[:, 0] < mResTmp[:, 1]).mean()  * 100) + '%]')
 
 
-# %% Visualize comparison
-plt.scatter(mResults.TrnsKLD, mResults.NeepScg, 8)
-plt.plot([0, max(mResults.TrnsKLD.max(), mResults.NeepScg.max())], [0, max(mResults.TrnsKLD.max(), mResults.NeepScg.max())], 'k')
-plt.xlabel("TrnsKLD")
-plt.ylabel("NeepScg")
-plt.show()
+# Visualize comparison
+# plt.scatter(mResults.TrnsKLD, mResults.NeepScg, 8)
+# plt.plot([0, max(mResults.TrnsKLD.max(), mResults.NeepScg.max())], [0, max(mResults.TrnsKLD.max(), mResults.NeepScg.max())], 'k')
+# plt.xlabel("TrnsKLD")
+# plt.ylabel("NeepScg")
+# plt.show()
 
-plt.scatter(mResults.TrnsKLD, mResults.ScgPlgn, 8)
-plt.plot([0, max(mResults.TrnsKLD.max(), mResults.ScgPlgn.max())], [0, max(mResults.TrnsKLD.max(), mResults.ScgPlgn.max())], 'k')
-plt.xlabel("TrnsKLD")
-plt.ylabel("ScgPLGN")
+resFig1 = plt.figure()
+plt.hist(mResults.TrnsKLD - mResults.ScgPlgn, 30)
+# plt.xlabel("TrnsKLD")
+# plt.ylabel("ScgPLGN")
 plt.show()
+resFig1.set_size_inches((2 * 3.38582677, 3.38582677))
+resFig1.savefig(f'NeepRobustness.pdf')
+# plt.scatter(mResults.ScgPlgn, mResults.NeepScg, 8)
+# plt.plot([0, max(mResults.ScgPlgn.max(), mResults.NeepScg.max())], [0, max(mResults.ScgPlgn.max(), mResults.NeepScg.max())], 'k')
+# plt.xlabel("ScgPLGN")
+# plt.ylabel("NeepScg")
+# plt.show()
 
-plt.scatter(mResults.ScgPlgn, mResults.NeepScg, 8)
-plt.plot([0, max(mResults.ScgPlgn.max(), mResults.NeepScg.max())], [0, max(mResults.ScgPlgn.max(), mResults.NeepScg.max())], 'k')
-plt.xlabel("ScgPLGN")
-plt.ylabel("NeepScg")
+# compare against full EPR
+resFig = plt.figure()
+plt.scatter(mResults.FullEpr, mResults.TrnsKLD, 9, label='$\sigma_{\mathrm{KLD,S-CG}}$')
+plt.scatter(mResults.FullEpr, mResults.ScgPlgn, 7, label='$\sigma_{\mathrm{plug,S-CG}}$')
+plt.scatter(mResults.FullEpr, mResults.NeepScg, 5, label='$\sigma_{\mathrm{neep,S-CG}}$')
+vRange = [0, max(mResults.FullEpr.max(), mResults.TrnsKLD.max(), mResults.NeepScg.max(), mResults.ScgPlgn.max())]
+plt.plot(vRange, vRange, 'k')
+plt.xlabel("$\sigma_{\mathrm{tot}}$")
+plt.ylabel("Estimated EPR")
+plt.legend()
 plt.show()
-
-plt.scatter(mResults.FullEpr, mResults.TrnsKLD, 8)
-plt.plot([0, max(mResults.FullEpr.max(), mResults.TrnsKLD.max())], [0, max(mResults.FullEpr.max(), mResults.TrnsKLD.max())], 'k')
-plt.xlabel("FullEpr")
-plt.ylabel("TrnsKLD")
-plt.show()
-
-plt.scatter(mResults.FullEpr, mResults.NeepScg, 8)
-plt.plot([0, max(mResults.FullEpr.max(), mResults.NeepScg.max())], [0, max(mResults.FullEpr.max(), mResults.TrnsPlgn.max())], 'k')
-plt.xlabel("FullEpr")
-plt.ylabel("NeepScg")
-plt.show()
-
-plt.scatter(mResults.FullEpr, mResults.ScgPlgn, 8)
-plt.plot([0, max(mResults.FullEpr.max(), mResults.ScgPlgn.max())], [0, max(mResults.FullEpr.max(), mResults.ScgPlgn.max())], 'k')
-plt.xlabel("FullEpr")
-plt.ylabel("ScgPLGN")
-plt.show()
+resFig.set_size_inches((2 * 3.38582677, 3.38582677))
+resFig.savefig(f'NeepRobustness.pdf')
+# plt.scatter(mResults.FullEpr, mResults.NeepScg, 8)
+# plt.plot([0, max(mResults.FullEpr.max(), mResults.NeepScg.max())], [0, max(mResults.FullEpr.max(), mResults.NeepScg.max())], 'k')
+# plt.xlabel("FullEpr")
+# plt.ylabel("NeepScg")
+# plt.show()
+#
+# plt.scatter(mResults.FullEpr, mResults.ScgPlgn, 8)
+# plt.plot([0, max(mResults.FullEpr.max(), mResults.ScgPlgn.max())], [0, max(mResults.FullEpr.max(), mResults.ScgPlgn.max())], 'k')
+# plt.xlabel("FullEpr")
+# plt.ylabel("ScgPLGN")
+# plt.show()
 
