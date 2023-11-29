@@ -25,11 +25,11 @@ def GenRateMat(nDim, limit):
 	for k in range(nDim):
 		mW[k, k] = mW[k, k] - np.sum(mW[:, k])
 	vHiddenStates = np.array([2, 3])
-	timeres = 0.01
+	timeRes = 0.01
 	return mW, nDim, vHiddenStates, timeRes
 # Define the sweep
-nIterations = 1
-maxGenRate = 500
+nIterations = 50
+maxGenRate = 50
 trajLength = 1e7
 nDim = 4
 maxNumStates = 12  # for validty of systems
@@ -112,7 +112,7 @@ while iIter < nIterations:
     # Define sampler - train and validation
     for epoch in range(int(10)):
         tic = time.time()
-        bestLossEpoch, epRate, bestEpErr = trainRnn(trainLoader, trainLoader, epoch)
+        bestLossEpoch, epRate, bestEpErr = trainRnn(trainLoader, epoch)
         toc = time.time()
         if bestLossEpoch < bestLoss:
             bestEp = epRate / T
@@ -143,24 +143,24 @@ mResults = pd.DataFrame(np.array([savedFullEpr, savedPlgnScg, savedKldTrns, save
 mResults.to_csv('StatisticalCompare.csv')
 
 # %% Un-comment if you want to read saved data
-# mResults = pd.read_csv("StatisticalCompare.csv")
+mResults = pd.read_csv("StatisticalCompare.csv")
 
 # %% Count overestimation
-mOverEst = np.expand_dims(mResults.values[:, 0], 1).repeat(len(mResults.values[0, 1:]), 1) - mResults.values[:, 1:]
+mOverEst = np.expand_dims(mResults.values[:, 1], 1).repeat(len(mResults.values[0, 2:]), 1) - mResults.values[:, 2:]
 vOverEstSys = (mOverEst < 0).sum(1)
 print('Overestimated systems: ' + str((vOverEstSys > 0).sum()) + ' [' + str((vOverEstSys > 0).mean() * 100) + '%]')
 
 vOverEstSys = (mOverEst < 0).sum(0)
 print('Overestimated by PLGN-SCG: ' + str(vOverEstSys[0]) + ' [' + str(vOverEstSys[0] / mOverEst.shape[0] * 100) + '%]')
 print('Overestimated by KLD-TRNS: ' + str(vOverEstSys[1]) + ' [' + str(vOverEstSys[1] / mOverEst.shape[0] * 100) + '%]')
-print('Overestimated by PLGN-TRNS: ' + str(vOverEstSys[2]) + ' [' + str(vOverEstSys[2] / mOverEst.shape[0] * 100) + '%]')
+print('Overestimated by NEEP-SCG: ' + str(vOverEstSys[2]) + ' [' + str(vOverEstSys[2] / mOverEst.shape[0] * 100) + '%]')
 print("\n")
 
 # Count the maximum estimators
-mResTmp = mResults.values[:, 1:]
+mResTmp = mResults.values[:, 2:]
 print('KLD-transformed maximum estimator in ' + str((mResTmp.argmax(1) == 1).sum()) + ' times [' + str((mResTmp.argmax(1) == 1).mean() * 100) + '%]')
 print('Plugin-SCG maximum estimator in ' + str((mResTmp.argmax(1) == 0).sum()) + ' times [' + str((mResTmp.argmax(1) == 0).mean() * 100) + '%]')
-print('Plugin-transformed maximum estimator in ' + str((mResTmp.argmax(1) == 2).sum()) + ' times [' + str((mResTmp.argmax(1) == 2).mean() * 100) + '%]')
+print('NEEP-SCG maximum estimator in ' + str((mResTmp.argmax(1) == 2).sum()) + ' times [' + str((mResTmp.argmax(1) == 2).mean() * 100) + '%]')
 print("\n")
 # Compare KLD transformed and Plugin SCG
 print('KLD transformed is higher than Plugin-SCG count: ' + str((mResTmp[:, 0] < mResTmp[:, 1]).sum()) + ' [' + str((mResTmp[:, 0] < mResTmp[:, 1]).mean()  * 100) + '%]')
@@ -179,7 +179,7 @@ plt.hist(mResults.TrnsKLD - mResults.ScgPlgn, 30)
 # plt.ylabel("ScgPLGN")
 plt.show()
 resFig1.set_size_inches((2 * 3.38582677, 3.38582677))
-resFig1.savefig(f'NeepRobustness.pdf')
+# resFig1.savefig(f'NeepRobustness.pdf')
 # plt.scatter(mResults.ScgPlgn, mResults.NeepScg, 8)
 # plt.plot([0, max(mResults.ScgPlgn.max(), mResults.NeepScg.max())], [0, max(mResults.ScgPlgn.max(), mResults.NeepScg.max())], 'k')
 # plt.xlabel("ScgPLGN")
@@ -193,9 +193,10 @@ plt.scatter(mResults.FullEpr, mResults.ScgPlgn, 7, label='$\sigma_{\mathrm{plug,
 plt.scatter(mResults.FullEpr, mResults.NeepScg, 5, label='$\sigma_{\mathrm{neep,S-CG}}$')
 vRange = [0, max(mResults.FullEpr.max(), mResults.TrnsKLD.max(), mResults.NeepScg.max(), mResults.ScgPlgn.max())]
 plt.plot(vRange, vRange, 'k')
-plt.xlabel("$\sigma_{\mathrm{tot}}$")
-plt.ylabel("Estimated EPR")
-plt.legend()
+plt.xlabel("$\sigma_{\mathrm{tot}}$", fontsize='small')
+plt.ylabel("Estimated EPR", fontsize='small')
+plt.legend(prop={'size': 5})
+plt.tick_params(axis="both", labelsize=6)
 plt.show()
 resFig.set_size_inches((2 * 3.38582677, 3.38582677))
 resFig.savefig(f'NeepRobustness.pdf')

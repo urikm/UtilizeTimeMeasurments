@@ -233,7 +233,7 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     vStates = np.unique(mCgTrajectory[:, 0])
     vStates, dMap = MapStates2Indices(vStates, states2Omit=states2Omit)
     nStates = len(vStates)
-    eps = 1e-8  # used for numerical stability
+
 
     # Estimate 1st and 2nd order statistics from hidden trajectory
     mIndStates, _, _, _, _ = EstimateTrajParams(mCgTrajectory, states2Omit=states2Omit)
@@ -245,6 +245,8 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
         vR[dMap[iState]] = np.size(mIndStates[dMap[iState]], 0)
     nTot = mCgTrajectory.shape[0]
     vR /= nTot
+
+    eps = 1e-8  # used for numerical stability
 
     # Time factor('tau') to convert from "per jump" to "per step" - mean dwelling time per jump
     T = np.mean(mCgTrajectory[:, 1])  # Also can be the mean over mean dwelling per state - np.dot(vTau, vR)
@@ -276,6 +278,7 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
     # Calculate Affinity part
     vPij_jk[vPij_jk < eps] = eps
     sigmaDotAff = 0
+    sigmaDotAffAlt = 0
     for iState in vStates:
         vFirstTrans = np.roll(vStates, -dMap[iState])[1:]
         for jState in vFirstTrans:
@@ -291,8 +294,17 @@ def CalcKLDPartialEntropyProdRate(mCgTrajectory, vHiddenStates, states2Omit=[]):
                             dMap[iState], dMap[jState], dMap[kState]])
                     affAddition = singleDirAff1 + singleDirAff2
                     sigmaDotAff += affAddition / 2  # because every thing will be calculated twice
+                elif (vPij_jk[dMap[iState], dMap[jState], dMap[kState]] > eps and vPij_jk[dMap[kState], dMap[jState], dMap[iState]] == eps) or (vPij_jk[dMap[iState], dMap[jState], dMap[kState]] == eps and vPij_jk[dMap[kState], dMap[jState], dMap[iState]] > eps):
+                    singleDirAff1 = mP2ndOrdTrans[dMap[iState], dMap[jState], dMap[kState]] * np.log(
+                        vPij_jk[dMap[iState], dMap[jState], dMap[kState]] / vPij_jk[
+                            dMap[kState], dMap[jState], dMap[iState]])
+                    singleDirAff2 = mP2ndOrdTrans[dMap[kState], dMap[jState], dMap[iState]] * np.log(
+                        vPij_jk[dMap[kState], dMap[jState], dMap[iState]] / vPij_jk[
+                            dMap[iState], dMap[jState], dMap[kState]])
+                    affAddition = singleDirAff1 + singleDirAff2
+                    sigmaDotAffAlt += affAddition / 2  # because every thing will be calculated twice
     sigmaDotAff /= T
-
+    sigmaDotAffAlt /= T
     # Calculate WTD part
     maxWTD = np.percentile(mCgTrajectory[:, 1], 98)
     minWTD = np.percentile(mCgTrajectory[:, 1], 0.1)

@@ -8,10 +8,6 @@ __pycache__/
 *.png
 *.pt
 *.svg
-*.mat
-*.xls
-*.xlsx
 *.txt
-*.pdf
 venv/
-*.csv
+

@@ -28,7 +28,7 @@ addSemiCG = True
 
 pathWoTimekld = ''
 
-nRunsC = 10  # number of runs for collecting statistics of plugin/KLD
+nRunsC = 1  # number of runs for collecting statistics of plugin/KLD
 trajlength = 1e7
 
 # -----------Grid----------------
@@ -165,7 +165,7 @@ if __name__ == '__main__':
                     mCgTraj, _, vHiddenStatesS, tauFactor = CreateMMTrajectory(mu, F, int(trajlength), fullCg=False, isCG=True, remap=False)
                     vPluginInfSemi[ix, iRun] = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=0) / np.mean(mCgTraj[:, 1])
 
-    pathWoTime = 'Analysis_MM_23_09_28'
+    pathWoTime = 'Analysis_MM_23_11_28'
     subFolderSemi = 'AnalysisMM_'  # 'AnalysisFullSemi_'
 
     ## TODO : detele its for DEBUG
@@ -191,10 +191,29 @@ if __name__ == '__main__':
         mNeepMeanSemi = np.mean(mNeepSemi, axis=2)
         mNeepStdSemi = np.std(mNeepSemi, axis=2)
 
+# %% FCG neep
+    pathWoTimeF = 'Analysis_MM_23_09_28'
+    subFolder = 'AnalysisMM_'  # 'AnalysisFullSemi_'
+    print("Plotting RNEEP results without time data - Full coarse grained")
+    mNeepRaw = np.zeros([nSeqsSemi, nLastSemi + 1, nRunsSemi])
+    mNeep = np.zeros([nSeqsSemi, nLastSemi + 1, nRunsSemi])
+    vKldFcg = np.ones([nLastSemi + 1, nRunsSemi])
+    for iRun in range(1, nRunsSemi + 1):
+        with open(pathWoTimeF + os.sep + subFolder + str(iRun) + os.sep + 'vKld' + specialPath + '.pickle',
+                  'rb') as handle:
+            vKldFcg[:, iRun - 1 - 10] = pickle.load(handle)
+        with open(pathWoTimeF + os.sep + subFolder + str(iRun) + os.sep + 'mNeep' + specialPath + '.pickle',
+                  'rb') as handle:
+            mNeepRaw[:, :, iRun - 1 - 10] = pickle.load(handle)
+
+    for i in range(mNeep.shape[1]):
+        mNeep[:, i, :] = mNeepRaw[:, i, :]
+    mNeepMean = np.mean(mNeep, axis=2)
+    mNeepStd = np.std(mNeep, axis=2)
 
     # %% Plot
     # TODO : grid axes are flipped due to convention discrepancy with 2017 Gili's paper. need to first CalcW4DrivingForce, run all the estimators again and than we can get rid of the flipping od the axes
-    resFig = plt.figure(0)
+    resFig, ax1 = plt.subplots()
 
     # Save buffers
     vFull_Orig = vFull
@@ -213,10 +232,10 @@ if __name__ == '__main__':
 
 
     # Plot full trajectory EPR
-    plt.plot(vGridInterp, vFull, linestyle='-', color=(0.6350, 0.0780, 0.1840), label='$\sigma_{\mathrm{tot}}$')
+    ax1.plot(vGridInterp, vFull, linestyle='-', color=(0.6350, 0.0780, 0.1840), label='$\sigma_{\mathrm{tot}}$')
 
     # Plot S-CG estimators
-    plt.errorbar(vGridInterpCoarse, (vKldSemi2.mean(axis=1)), yerr=(vKldSemi2.std(axis=1)), fmt='-.', lw=0.5, color=(0, 0.4470, 0.7410), label='$\sigma_{\mathrm{KLD}}$')  # add to vKld -> vKld[:, 0]
+    ax1.errorbar(vGridInterpCoarse, (vKldSemi2.mean(axis=1)), yerr=(vKldSemi2.std(axis=1)), fmt='-.', lw=0.5, color=(0, 0.4470, 0.7410), label='$\sigma_{\mathrm{KLD}}$')  # add to vKld -> vKld[:, 0]
 
     if addPlugin:
         plt.errorbar(vGridInterpCoarse, (vPluginInfSemi.mean(axis=1)), yerr=(vPluginInfSemi.std(axis=1)), fmt='-.', lw=0.5,
@@ -224,33 +243,57 @@ if __name__ == '__main__':
 
     vFiltNeep = [1,2,5,6,9,10]
     if addSemiCG:
-        plt.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[nSeqsSemi - 1, vFiltNeep]),
+        ax1.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[nSeqsSemi - 1, vFiltNeep]),
                      yerr=(mNeepStdSemi[nSeqsSemi - 1, vFiltNeep] ), fmt='d',
                      color=(0.2940, 0.1140, 0.3560), markersize=5, label='$\sigma_{\mathrm{RNEEP,128}}$')
-        plt.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[2, vFiltNeep]), yerr=(mNeepStdSemi[2, vFiltNeep] ),
+        ax1.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[2, vFiltNeep]), yerr=(mNeepStdSemi[2, vFiltNeep] ),
                      fmt='d',
                      color=(0.4940, 0.2840, 0.5560), markersize=4, label='$\sigma_{\mathrm{RNEEP,16}}$')
-        plt.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[1, vFiltNeep]), yerr=(mNeepStdSemi[1, vFiltNeep] ),
+        ax1.errorbar(vGridSemi[vFiltNeep], (mNeepMeanSemi[1, vFiltNeep]), yerr=(mNeepStdSemi[1, vFiltNeep] ),
                      fmt='d',
                      color=(0.7940, 0.4840, 0.8560), markersize=2, label='$\sigma_{\mathrm{RNEEP,3}}$')
 
+
     # Plot FCG estimators
-    plt.errorbar((vGridInterpCoarse), (vKld2.mean(axis=1)), yerr=(vKld2.std(axis=1)), fmt='-.', lw=0.5, color=(0.3010, 0.7450, 0.9330), label='$\sigma_{\mathrm{KLD-FCG}}$ ')  # add to vKld -> vKld[:, 0]
+    ax1.errorbar((vGridInterpCoarse), (vKld2.mean(axis=1)), yerr=(vKld2.std(axis=1)), fmt='-.', lw=0.5, color=(0.3010, 0.7450, 0.9330), label='$\sigma_{\mathrm{KLD-FCG}}$ ')  # add to vKld -> vKld[:, 0]
+
 
     if addPlugin:
-        plt.errorbar(vGridInterpCoarse, (vPluginInf.mean(axis=1)), yerr=(vPluginInf.std(axis=1)), fmt='-.', lw=0.5,
+        ax1.errorbar(vGridInterpCoarse, (vPluginInf.mean(axis=1)), yerr=(vPluginInf.std(axis=1)), fmt='-.', lw=0.5,
                      color=(0.9290, 0.6940, 0.1250), label='$\sigma_{\mathrm{plug-FCG}}$')
 
 
+    ax1.errorbar(vGridSemi[vFiltNeep], (mNeepMean[nSeqsSemi - 1, vFiltNeep]),
+                 yerr=(mNeepStdSemi[nSeqsSemi - 1, vFiltNeep]), fmt='d',
+                 color=(0.1660, 0.3740, 0.0880), markersize=5, label='$\sigma_{\mathrm{RNEEP,128}}$')
+    ax1.errorbar(vGridSemi[vFiltNeep], (mNeepMean[2, vFiltNeep]), yerr=(mNeepStd[2, vFiltNeep]),
+                 fmt='d',
+                 color=(0.2660, 0.5740, 0.1380), markersize=4, label='$\sigma_{\mathrm{RNEEP,16}}$')
+    ax1.errorbar(vGridSemi[vFiltNeep], (mNeepMean[1, vFiltNeep]), yerr=(mNeepStd[1, vFiltNeep]),
+                 fmt='d',
+                 color=(0.6660, 0.7740, 0.3880), markersize=2, label='$\sigma_{\mathrm{RNEEP,3}}$')
 
 
-    plt.yscale('log')
-    plt.xlabel('F', fontsize='small')
-    plt.ylabel('Entropy Production rate $[s^{-1}]$', fontsize='small')
-    plt.tick_params(axis="both", labelsize=6)
+    ax1.set_yscale('log')
+    newPos = ax1.get_position()
+    newPos.x0 += 0.02
+    ax1.set_position(newPos)
+    ax1.set_xlabel('F', fontsize='small')
+    ax1.set_ylabel('Entropy Production rate $[s^{-1}]$', fontsize='small')
+    ax1.tick_params(axis="both", labelsize=6)
     # plt.ylim(bottom=1e-4)
     # plt.xlim(right=-1.55, left=-2.2)
-    plt.legend(prop={'size': 5})#, title='Semi-CG', title_fontsize='xx-small')
+    ax1.legend(prop={'size': 5})#, title='Semi-CG', title_fontsize='xx-small')
+
+    # handle legend
+    handles, labels = plt.gca().get_legend_handles_labels()
+    order = np.arange(len(labels))  # Handle a bug of legend plotting
+    aa = ax1.legend([handles[idx] for idx in order[[0]]],
+                    [labels[idx] for idx in order[[0]]], prop={'size': 4.8}, loc=4, ncol=1,
+                    title='Theoretical Bounds', title_fontsize='xx-small')
+    ax1.add_artist(aa)
+    ax1.legend([handles[idx] for idx in order[1:]], [labels[idx] for idx in order[1:]], prop={'size': 4.8}, loc=3,
+               ncol=2, title='     Empirical Bounds\nSemi-CG           Full-CG', title_fontsize='xx-small')
 
     plt.show()
     resFig.set_size_inches((2*3.38582677, 3.38582677))

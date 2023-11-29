@@ -29,14 +29,13 @@ trajLength = 1e7
 # %% Calculate semi-CG KLD
 mW, nDim, vHiddenStates, timeRes = BaseSystem()
 mWx = CalcW4DrivingForce(mW, vGrid[idxX2Plot])
-mCgTraj, nCgDim, vHiddenStatesS2 = CreateCoarseGrainedTraj(4, int(trajLength), mWx, vHiddenStates, timeRes, semiCG=True,
-                                                           remap=True)
+mCgTraj, nCgDim, vHiddenStatesS2 = CreateCoarseGrainedTraj(4, int(trajLength), mWx, vHiddenStates, timeRes, semiCG=True, remap=True)
 vStates = np.unique(mCgTraj[:, 0])
 states2Omit = []  # np.array([1007, 1009])  # vStates[vStates > 1006]  #
-kldSemi, Tsemi2, _, _ = CalcKLDPartialEntropyProdRate(mCgTraj, vHiddenStatesS2,
-                                                                  states2Omit=states2Omit)
+kldSemi, _, _, _ = CalcKLDPartialEntropyProdRate(mCgTraj, vHiddenStatesS2, states2Omit=states2Omit)
 mCgTraj, nCgDim, vHiddenStatesS2 = CreateCoarseGrainedTraj(4, int(trajLength), mWx, vHiddenStates, timeRes, semiCG=True)
-pluginInf = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=1e-7) / Tsemi2
+T4state = np.mean(mCgTraj[:, 1])
+pluginInf = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=0) / T4state
 
 # %% Read data Shorts
 nSeqs = 5
@@ -54,8 +53,8 @@ for iRun in range(1 + 10, nRuns + 1 + 10):
 
 for i in range(mNeep.shape[1]):
     mNeep[:, i, :] = mNeepRaw[:, i, :]
-mNeepMean = np.mean(mNeep, axis=2)
-mNeepStd = np.std(mNeep, axis=2)
+mNeepMean = np.mean(mNeep, axis=2) / 1
+mNeepStd = np.std(mNeep, axis=2) / 1
 
 # %% Read data Longs
 nSeqs = 6
@@ -73,8 +72,8 @@ for iRun in range(1 + 10, nRuns + 1 + 10):
 
 for i in range(mNeepLongs.shape[1]):
     mNeepLongs[:, i, :] = mNeepRawLongs[:, i, :]
-mNeepMeanLongs = np.mean(mNeepLongs, axis=2)
-mNeepStdLongs = np.std(mNeepLongs, axis=2)
+mNeepMeanLongs = np.mean(mNeepLongs, axis=2) / 1
+mNeepStdLongs = np.std(mNeepLongs, axis=2) / 1
 
 ############################################################
 # %% Load data for FR
@@ -82,17 +81,20 @@ mNeepStdLongs = np.std(mNeepLongs, axis=2)
 idxX2PlotFR = 3
 vGrid = np.array([0.5, 1, 1.5, 2])  # Used potentials for RNEEP evaluation
 vSeqGrid = [2, 8, 16, 32, 64, 128]
-mNeepMeanSemi = scipy.io.loadmat('..\Results\FlashingRatchetSummary\mMeansSemi.mat')
-mNeepMeanSemi = mNeepMeanSemi['mMeanSemi']
-mNeepStdSemi = scipy.io.loadmat('..\Results\FlashingRatchetSummary\mStdSemi.mat')
-mNeepStdSemi = mNeepStdSemi['mStdSemi']
 
 # KLD and plugin
-mCgTraj, _, vHiddenStatesS = rt.CreateNEEPTrajectory(int(trajLength), vGrid[idxX2PlotFR], fullCg=False, remap=True)
+mCgTraj, _, vHiddenStatesS, _ = rt.CreateNEEPTrajectory(int(trajLength), vGrid[idxX2PlotFR], fullCg=False, remap=True)
 vStates = np.unique(mCgTraj[:, 0])
-kldSemiFR, TsemiFR, _, _ = CalcKLDPartialEntropyProdRate(mCgTraj, vHiddenStatesS)
-mCgTraj, _, vHiddenStatesS = rt.CreateNEEPTrajectory(int(trajLength), vGrid[idxX2PlotFR], fullCg=False)
-pluginInfFR = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=1e-7) / TsemiFR
+
+kldSemiFR, _, _, _ = CalcKLDPartialEntropyProdRate(mCgTraj, vHiddenStatesS)
+mCgTraj, _, vHiddenStatesS, _ = rt.CreateNEEPTrajectory(int(trajLength), vGrid[idxX2PlotFR], fullCg=False)
+Tfr = np.mean(mCgTraj[:, 1])
+pluginInfFR = infEPR.EstimatePluginInf(mCgTraj[:, 0], gamma=0) / Tfr
+
+mNeepMeanSemi = scipy.io.loadmat('..\Results\FlashingRatchetSummary\mMeansSemi.mat')
+mNeepMeanSemi = mNeepMeanSemi['mMeanSemi'] / Tfr
+mNeepStdSemi = scipy.io.loadmat('..\Results\FlashingRatchetSummary\mStdSemi.mat')
+mNeepStdSemi = mNeepStdSemi['mStdSemi'] / Tfr
 ############################################################
 
 # %% Plot Convergences
@@ -133,7 +135,7 @@ ax2.tick_params(axis="both", labelsize=6)
 ax2.legend(prop={'size': 6}, title_fontsize='xx-small', loc=(0.695, 0.5))
 
 ax2.set_title('Flashing Ratchet')
-
+#plt.tick_params(axis="both", labelsize=6)
 plt.show()
 reSfig.set_size_inches((3.38582677*2, 3.38582677))
 reSfig.savefig(f'PlotRneepConvergence.pdf')

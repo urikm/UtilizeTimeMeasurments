@@ -9,34 +9,24 @@ from PhysicalModels.PartialTrajectories import CreateCoarseGrainedTraj, CalcKLDP
 from PhysicalModels.UtilityTraj import EntropyRateCalculation
 from PhysicalModels.MasterEqSim import MasterEqSolver as MESolver
 import Utility.FindPluginInfEPR as infEPR
-y = 20.
-eps = 0.2
-z = y / 4
-mW = np.array([[-90.,   10.,   z,          z],
-               [ 45.,  -20.,   y,          y],
-               [ 22.5,  5.,   -(z+y+eps),  eps],
-               [ 22.5,  5.,    eps,       -(z+y+eps)]])
-nDim = 4
-timeRes = 0.01
-vHiddenStates = np.array([2, 3])
-trajLength = 1e7
 
 
-# Find the steady state
-vP0 = np.ones((nDim,)) / nDim  # np.array([0.25,0.25,0.25,0.25])
-n, vPi, mW, vWPn = MESolver(nDim, vP0, mW, timeRes)
-initState = np.random.choice(nDim, 1, p=vPi).item()
 
-fullEPR = EntropyRateCalculation(nDim, mW, vPi)
+mResults = pd.read_csv("..\StatisticalCompare.csv")
 
-# Semi-CG case
-mCgTraj, _, vNewHidden = CreateCoarseGrainedTraj(nDim, int(trajLength), mW, vHiddenStates, timeRes, semiCG=True,
-                                                    remap=True)
+vDiffResult = mResults.NeepScg - mResults.TrnsKLD
+vMask = mResults.NeepScg < mResults.FullEpr
+vMask = vMask.to_numpy()
+vDiffResult = vDiffResult.to_numpy()
 
-vKldSemi, Tsemi2, vKldSemiAff, _ = CalcKLDPartialEntropyProdRate(mCgTraj, vNewHidden)
+fig = plt.figure(4)
+plt.hist(vDiffResult[vMask], 29, density=True, cumulative=True, histtype='bar')
+plt.yticks(np.arange(0, 1, 0.1))
+plt.grid()
+plt.xlabel('$\sigma_{RNEEP} - \sigma_{KLD}$', fontsize='small')
+plt.ylabel('Cumulative Distribution Function', fontsize='small')
+plt.tick_params(axis="both", labelsize=6)
+plt.show()
 
-# Full CG case
-mCgTrajF, _, vHiddenStatesFCG = CreateCoarseGrainedTraj(nDim, int(trajLength), mW, vHiddenStates, timeRes, semiCG=False,
-                                                    remap=False)
-
-vKldSemiFCG, TsemiFCG, vKldSemiAffFCG, _ = CalcKLDPartialEntropyProdRate(mCgTrajF, vHiddenStatesFCG)
+fig.set_size_inches((3.38582677,  3.38582677))
+fig.savefig(f'NeepVsKLD_SCG_CDF.pdf')
